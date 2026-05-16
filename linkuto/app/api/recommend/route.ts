@@ -1,107 +1,124 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin';
-import { cosineSimilarity } from '@/lib/embeddings';
-import { computeRRI, determineConfidence } from '@/lib/rri';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase-admin";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { entity_id, type, useMockData = true } = body;
+    const { userId, type } = await request.json();
 
-    if (!entity_id) {
-      return NextResponse.json({ error: 'entity_id is required' }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
 
-    // 1. Fetch the source entity
-    const sourceDoc = await db.collection('entities').doc(entity_id).get();
-    if (!sourceDoc.exists) {
-      return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
+    // 1. Fetch source user profile
+    const sourceSnapshot = await db.collection("entities").where("userId", "==", userId).get();
+    if (sourceSnapshot.empty) {
+      return NextResponse.json({ error: "Source profile not found" }, { status: 404 });
     }
-    const sourceData = sourceDoc.data()!;
-    const sourceEmbedding = sourceData.embedding;
+    const sourceProfile = sourceSnapshot.docs[0].data();
 
-    if (!sourceEmbedding || sourceEmbedding.length === 0) {
-      return NextResponse.json({ error: 'Source entity has no embedding generated yet.' }, { status: 400 });
-    }
+    // 2. Fetch ecosystem candidates
+    // We fetch all entities to score against, filtering out the user themselves
+    const candidatesSnapshot = await db.collection("entities").get();
+    let candidates = candidatesSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter((c: any) => c.userId !== userId);
 
-    // 2. Fetch target candidates
-    // In a real production app with >10,000 users, this would use Firestore Vector Search.
-    // For the hackathon MVP, we fetch candidates of the target type and compute in-memory.
-    let query: FirebaseFirestore.Query = db.collection('entities');
+    // If requested a specific type, try to filter, but if it results in empty (like in a fresh DB),
+    // we fallback to showing anyone else in the DB for demo purposes.
     if (type) {
-      query = query.where('type', '==', type);
-    }
-    
-    const candidatesSnap = await query.get();
-    const candidates = candidatesSnap.docs
-      .filter(doc => doc.id !== entity_id) // Exclude self
-      .map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-
-    // 3. Compute cosine similarity for all candidates
-    const scoredCandidates = candidates
-      .filter(c => c.embedding && c.embedding.length > 0)
-      .map(candidate => {
-        const sim = cosineSimilarity(sourceEmbedding, candidate.embedding);
-        return {
-          candidate,
-          similarity: sim
-        };
-      })
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 10); // Take top 10 for performance
-
-    // 4. Calculate RRI and Generate AI Explanations
-    const model = genai.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
-    
-    const results = await Promise.all(scoredCandidates.map(async ({ candidate, similarity }) => {
-      // Calculate RRI
-      const rriScore = computeRRI({
-        embeddingSim: similarity,
-        engagementScore: 0, // In MVP, this would be fetched from relationships graph
-        profileMatch: 0,
-        feedbackScore: 0
-      }, useMockData);
-
-      // Generate Explanation using Gemini
-      // Provide limited context to keep generation fast
-      const prompt = `In ONE concise sentence, explain why this candidate is a good match for the source entity.
-      Source Entity (Looking for match):
-      ${JSON.stringify({ name: sourceData.name || sourceData.headline, expertise: sourceData.expertise, summary: sourceData.summary })}
-      
-      Candidate Entity (The recommended match):
-      ${JSON.stringify({ name: candidate.name || candidate.headline, expertise: candidate.expertise, summary: candidate.summary })}
-      
-      Return ONLY the explanation sentence. Do not use quotes or introductory phrases.`;
-
-      let explanation = "Strong profile alignment based on semantic matching.";
-      try {
-        const aiResponse = await model.generateContent(prompt);
-        explanation = aiResponse.response.text().trim().replace(/^"|"$/g, '');
-      } catch (err) {
-        console.warn('Failed to generate AI explanation for candidate', candidate.id, err);
+      const typeFiltered = candidates.filter((c: any) => c.type?.toLowerCase() === type.toLowerCase());
+      if (typeFiltered.length > 0) {
+        candidates = typeFiltered;
       }
+    }
 
-      return {
-        id: candidate.id,
-        name: candidate.name || candidate.headline,
-        type: candidate.type,
-        score: Number(rriScore.toFixed(3)),
-        confidence: determineConfidence(rriScore),
-        explanation,
-        rawSimilarity: Number(similarity.toFixed(3)) // useful for debugging
-      };
-    }));
+    if (candidates.length === 0) {
+      return NextResponse.json({ results: [] });
+    }
 
-    // Re-sort by final RRI score
+    // 3. AI Scoring and Explanation (The RRI Engine)
+    // For each candidate, we'll ask Gemini to evaluate the match and provide an explanation.
+    // To stay fast, we'll process them in parallel with a simple prompt.
+    const model = genai.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+
+    const results = await Promise.all(
+      candidates.map(async (candidate: any) => {
+        try {
+          const prompt = `
+            You are the AI brain of LINKUTO, a B2B SaaS ecosystem matching platform.
+            Evaluate the synergy between this Source Startup and this Candidate ${type || 'Partner'}.
+            
+            Source Startup:
+            Name: ${sourceProfile.name}
+            Summary: ${sourceProfile.summary}
+            Expertise: ${sourceProfile.expertise?.join(", ")}
+            Industry: ${sourceProfile.industry}
+
+            Candidate:
+            Name: ${candidate.name}
+            Summary: ${candidate.summary}
+            Expertise: ${candidate.expertise?.join(", ")}
+            Industry: ${candidate.industry}
+
+            Return a valid JSON object EXACTLY like this (no markdown, no extra text):
+            {
+              "baseScore": <number between 0.0 and 1.0 based on alignment>,
+              "explanation": "<one sentence explaining why this is a good or bad match>",
+              "confidence": "<high, medium, or low>"
+            }
+          `;
+
+          const result = await model.generateContent(prompt);
+          let responseText = result.response.text().trim();
+          
+          // Cleanup markdown if AI included it
+          if (responseText.startsWith("```json")) {
+             responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+          } else if (responseText.startsWith("```")) {
+             responseText = responseText.replace(/```/g, "").trim();
+          }
+
+          const aiEval = JSON.parse(responseText);
+
+          // 4. Calculate final RRI Score
+          // RRI = 0.4 * AI Base Alignment + 0.3 * Engagement + 0.2 * ProfileMatch + 0.1 * Feedback
+          // Since it's a new match, Engagement = 0.5, ProfileMatch = baseScore, Feedback = 0.5
+          const embeddingSim = aiEval.baseScore || 0.5;
+          const rriScore = (0.4 * embeddingSim) + (0.3 * 0.5) + (0.2 * embeddingSim) + (0.1 * 0.5);
+
+          return {
+            id: candidate.id,
+            candidate,
+            score: Number(rriScore.toFixed(2)),
+            explanation: aiEval.explanation,
+            confidence: aiEval.confidence
+          };
+        } catch (err) {
+          console.error("Failed to score candidate", candidate.name, err);
+          return {
+            id: candidate.id,
+            candidate,
+            score: 0.5,
+            explanation: "Could not evaluate synergy.",
+            confidence: "low"
+          };
+        }
+      })
+    );
+
+    // 5. Sort by RRI score descending
     results.sort((a, b) => b.score - a.score);
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results: results.slice(0, 10) });
 
   } catch (error: any) {
-    console.error('[API] Recommend error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred' }, { status: 500 });
+    console.error("[API] Recommendation error:", error);
+    return NextResponse.json(
+      { error: error.message || "An error occurred generating recommendations" },
+      { status: 500 }
+    );
   }
 }
