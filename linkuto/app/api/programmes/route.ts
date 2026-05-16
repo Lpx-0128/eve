@@ -7,6 +7,7 @@ export async function POST(request: Request) {
       name, 
       description, 
       industry_focus, 
+      applicationQuestions,
       status, 
       organiserId,
       organiserName
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
       name,
       description: description || "",
       industry_focus: industry_focus || [],
+      applicationQuestions: applicationQuestions || [],
       status: status || "draft",
       organiserId,
       organiserName: organiserName || "Unknown Organiser",

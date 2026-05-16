@@ -21,11 +21,11 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard/organiser" },
+  { label: "Programmes", icon: FolderKanban, href: "/programmes" },
+  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Profile", icon: User, href: "/profile" },
   { label: "Recommendations", icon: Sparkles, href: "/recommendations" },
   { label: "Graph", icon: GitBranch, href: "/graph" },
-  { label: "Programmes", icon: FolderKanban, href: "/programmes" },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
