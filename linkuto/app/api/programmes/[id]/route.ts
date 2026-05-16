@@ -13,7 +13,17 @@ export async function GET(
       return NextResponse.json({ error: "Programme not found" }, { status: 404 });
     }
     
-    return NextResponse.json({ data: { id: doc.id, ...doc.data() } });
+    const data = doc.data() as any;
+
+    // Dynamically fetch participants from applications to ensure accurate stats even if deleted manually
+    const applicationsSnap = await db.collection("applications")
+      .where("programmeId", "==", id)
+      .get();
+      
+    // Replace static participants with dynamic ones
+    data.participants = applicationsSnap.docs.map(d => d.data().participantId);
+
+    return NextResponse.json({ data: { id: doc.id, ...data } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

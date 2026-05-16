@@ -41,12 +41,16 @@ export default function ProgrammeDetailsPage() {
   const [programme, setProgramme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("participant");
 
   // Registration modal state
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
+  const [participantName, setParticipantName] = useState("");
+  const [participantEmail, setParticipantEmail] = useState("");
+  const [registerError, setRegisterError] = useState("");
 
   // Edit modal state (owner only)
   const [showEditModal, setShowEditModal] = useState(false);
@@ -80,7 +84,12 @@ export default function ProgrammeDetailsPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) setUserId(user.uid);
+      if (user) {
+        setUserId(user.uid);
+        // Read role from cookie
+        const match = document.cookie.match(new RegExp('(^| )user-role=([^;]+)'));
+        if (match) setUserRole(match[2]);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -129,6 +138,7 @@ export default function ProgrammeDetailsPage() {
     e.preventDefault();
     if (!userId || !programme) return;
     setIsSubmitting(true);
+    setRegisterError("");
     try {
       const res = await fetch("/api/programmes/apply", {
         method: "POST",
@@ -136,19 +146,32 @@ export default function ProgrammeDetailsPage() {
         body: JSON.stringify({
           programmeId: programme.id,
           participantId: userId,
+          name: participantName,
+          email: participantEmail,
           answers: formAnswers,
         }),
       });
       if (res.ok) {
         setRegistrationSuccess(true);
+        // Optimistically update the programme's participants array
+        setProgramme((prev: any) => ({
+          ...prev,
+          participants: [...(prev.participants || []), userId],
+        }));
         setTimeout(() => {
           setShowRegisterModal(false);
           setRegistrationSuccess(false);
           setFormAnswers({});
+          setParticipantName("");
+          setParticipantEmail("");
         }, 2500);
+      } else {
+        const data = await res.json();
+        setRegisterError(data.error || "An error occurred during registration.");
       }
     } catch (error) {
       console.error("Registration failed:", error);
+      setRegisterError("Failed to connect to the server.");
     } finally {
       setIsSubmitting(false);
     }
@@ -364,8 +387,8 @@ export default function ProgrammeDetailsPage() {
             )}
           </div>
 
-          {/* Registration Card — Only for non-owners */}
-          {!isOwner && (
+          {/* Registration Card — Only for participants (startups), not organisers */}
+          {!isOwner && userRole === "participant" && (
             <div className="bg-card-bg rounded-2xl border border-border-warm shadow-sm p-6 space-y-4">
               <p className="text-xs font-bold text-text-muted uppercase tracking-wider">Registration</p>
               <p className="text-sm text-text-muted font-body">Welcome! To join the programme, please register below.</p>
@@ -501,6 +524,36 @@ export default function ProgrammeDetailsPage() {
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-6">
+                      {registerError && (
+                        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold">
+                          {registerError}
+                        </div>
+                      )}
+                      <div className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Full Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={participantName}
+                            onChange={(e) => setParticipantName(e.target.value)}
+                            placeholder="Jane Doe"
+                            className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Email Address</label>
+                          <input
+                            type="email"
+                            required
+                            value={participantEmail}
+                            onChange={(e) => setParticipantEmail(e.target.value)}
+                            placeholder="jane@example.com"
+                            className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-sm"
+                          />
+                        </div>
+                      </div>
+
                       {programme.applicationQuestions?.map((q: any, idx: number) => (
                         <div key={idx} className="space-y-2">
                           <label className="text-xs font-bold text-text-primary uppercase tracking-wider">{q.label}</label>
