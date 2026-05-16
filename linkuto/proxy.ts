@@ -4,26 +4,46 @@ import type { NextRequest } from 'next/server';
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // For Phase 0-7, we implement a dev bypass.
-  // In a real app, this would verify Firebase Auth tokens.
-  const isDevBypassEnabled = true;
+  const token = request.cookies.get('firebase-auth-token')?.value;
+  const role = request.cookies.get('user-role')?.value || 'participant'; // Default to participant
 
-  // Protect dashboard routes
-  if (pathname.startsWith('/dashboard')) {
-    if (!isDevBypassEnabled) {
-      // In a real app, check for token cookie
-      const token = request.cookies.get('firebase-auth-token');
-      if (!token) {
-        return NextResponse.redirect(new URL('/login', request.url));
+  const isAuthRoute = pathname.startsWith('/login');
+  const isDashboardRoute = pathname.startsWith('/dashboard');
+
+  // 1. If accessing auth routes (like /login) but already logged in -> redirect to their specific dashboard
+  if (isAuthRoute && token) {
+    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+  }
+
+  // 2. If accessing protected routes but NOT logged in -> redirect to /login
+  if ((isDashboardRoute || pathname === '/profile') && !token) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // 3. Role-based Access Control for Dashboards
+  if (isDashboardRoute && token) {
+    // Array of valid roles mapped to dashboard paths
+    const validRoles = ['organiser', 'participant', 'sponsor', 'mentor'];
+    
+    // Check if the current path is trying to access a specific role dashboard
+    const pathParts = pathname.split('/').filter(Boolean);
+    const requestedRole = pathParts[1]; // /dashboard/{requestedRole}
+
+    if (requestedRole && validRoles.includes(requestedRole)) {
+      // If they are trying to access a role dashboard that is NOT their own, redirect them back to their own
+      if (requestedRole !== role) {
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
       }
+    } else if (pathname === '/dashboard' || pathname === '/dashboard/') {
+      // If they just go to /dashboard, push them to their specific role dashboard
+      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
     }
   }
 
-  // Redirect root to login (or dashboard if already "logged in")
+  // 4. Redirect root to dashboard (if logged in) or login (if not)
   if (pathname === '/') {
-    if (isDevBypassEnabled) {
-      // Redirect to a default dashboard for dev testing
-      return NextResponse.redirect(new URL('/dashboard/organiser', request.url));
+    if (token) {
+      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
     }
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -32,5 +52,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Apply middleware to all routes except API, Next.js static files, and images
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

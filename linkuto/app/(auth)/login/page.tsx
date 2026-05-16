@@ -41,8 +41,9 @@ export default function LoginPage() {
       const user = result.user;
       const idToken = await user.getIdToken();
 
-      // We set a dummy cookie here just so proxy.ts or middleware knows we are logged in
+      // We set dummy cookies here so the middleware knows we are logged in and our role
       document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600`;
+      document.cookie = `user-role=${role}; path=/; max-age=3600`;
 
       // 2. If it's a login, just go to the dashboard
       if (isLogin) {
@@ -292,7 +293,6 @@ export default function LoginPage() {
                   onClick={() => {
                     setIsLogin(!isLogin);
                     setError(null);
-                    setSuccessData(null);
                   }}
                   className="text-sm font-medium transition-colors cursor-pointer"
                   style={{ color: "#64748B" }}

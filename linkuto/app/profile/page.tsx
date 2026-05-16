@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { 
   Building2, 
   MapPin, 
@@ -14,14 +14,13 @@ import {
   Award,
   Wallet
 } from "lucide-react";
-import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import LoadingState from "@/components/LoadingState";
 import EmptyState from "@/components/EmptyState";
 import { useRouter } from "next/navigation";
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -29,7 +28,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 };
@@ -43,17 +42,13 @@ export default function ProfilePage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const q = query(
-            collection(db, "entities"),
-            where("userId", "==", user.uid),
-            limit(1)
-          );
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            setProfile(querySnapshot.docs[0].data());
+          const res = await fetch(`/api/profile?userId=${user.uid}`);
+          const json = await res.json();
+          if (res.ok && json.data) {
+            setProfile(json.data);
           }
         } catch (error) {
-          console.error("Error fetching profile:", error);
+          console.error("Error fetching profile via API:", error);
         }
       } else {
         router.push("/login");
