@@ -404,9 +404,10 @@ export default function ProgrammeDetailsPage() {
           {isOwner && (
             <div className="bg-card-bg rounded-2xl border border-accent/20 shadow-sm p-6 space-y-4">
               <p className="text-xs font-bold text-accent uppercase tracking-wider flex items-center gap-1.5"><Shield size={12} /> Owner Controls</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => setShowEditModal(true)}><Edit3 size={16} /> Edit Programme</button>
-                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/responses`)}><Sparkles size={16} /> See Responses</button>
+                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/responses`)}><Users size={16} /> See Responses</button>
+                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/ai-screening`)}><Sparkles size={16} /> Live AI Screening</button>
               </div>
             </div>
           )}

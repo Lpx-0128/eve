@@ -58,6 +58,7 @@ export default function ProgrammeDetailsPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState("active");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New fields edit state
   const [editType, setEditType] = useState("Accelerator");
@@ -209,6 +210,27 @@ export default function ProgrammeDetailsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!isOwner) return;
+    if (!confirm("Are you sure you want to delete this programme? This action cannot be undone.")) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/programmes/${programmeId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        router.push("/organiser/programmes");
+      } else {
+        alert("Failed to delete programme");
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return <LoadingState message="Loading programme details..." variant="skeleton" />;
   }
@@ -235,7 +257,7 @@ export default function ProgrammeDetailsPage() {
     <div className="max-w-6xl mx-auto pb-16">
       {/* Back Link */}
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push("/organiser/programmes")}
         className="inline-flex items-center gap-2 text-sm font-semibold text-text-muted hover:text-text-primary transition-colors mb-8"
       >
         <ArrowLeft size={16} /> Back to Programmes
@@ -404,9 +426,13 @@ export default function ProgrammeDetailsPage() {
           {isOwner && (
             <div className="bg-card-bg rounded-2xl border border-accent/20 shadow-sm p-6 space-y-4">
               <p className="text-xs font-bold text-accent uppercase tracking-wider flex items-center gap-1.5"><Shield size={12} /> Owner Controls</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => setShowEditModal(true)}><Edit3 size={16} /> Edit Programme</button>
-                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/responses`)}><Sparkles size={16} /> See Responses</button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/responses`)}><Users size={16} /> See Responses</button>
+                <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/ai-screening`)}><Sparkles size={16} /> Live AI Screening</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button className="py-3 rounded-xl bg-bg-base border border-border-warm font-semibold text-sm hover:bg-border-warm/30 transition-all flex items-center justify-center gap-2" onClick={() => setShowEditModal(true)}><Edit3 size={16} /> Edit Programme</button>
+                <button disabled={isDeleting} className="py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-semibold text-sm hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50" onClick={handleDelete}>{isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete Programme</button>
               </div>
             </div>
           )}
@@ -531,7 +557,7 @@ export default function ProgrammeDetailsPage() {
                       )}
                       <div className="space-y-4 pt-2">
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Full Name</label>
+                          <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Company Name</label>
                           <input
                             type="text"
                             required

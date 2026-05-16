@@ -34,7 +34,6 @@ export async function GET() {
       mockEntities.push({
         name: `${mentorNames[i % mentorNames.length]} ${Math.floor(i / 10) + 1}`,
         type: "Mentor",
-        summary: `Expert mentor with 15+ years of experience in ${industry} and leadership.`,
         industry: industry,
         location: locations[(i + 3) % locations.length],
         expertise: [industry, "Team Management", "Technical Architecture", "Fundraising"],

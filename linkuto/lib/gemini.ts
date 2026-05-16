@@ -89,6 +89,71 @@ export async function extractPersonName(content: string) {
   return _generateAndParseJSON(model, prompt);
 }
 
+export async function screenApplications(programme: any, applications: any[]) {
+  const model = genai.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+  const prompt = `You are an expert venture capital analyst and startup accelerator director. 
+  You are screening applications for the following programme:
+  
+  Programme Name: ${programme.name}
+  Description: ${programme.description}
+  Industry Focus: ${(programme.industry_focus || []).join(', ')}
+  Eligibility: ${programme.eligibility}
+  Perks: ${programme.perks}
+  
+  Here is an array of applications. Each application has an 'id', 'name', and an 'answers' object containing their responses to the application questions.
+  
+  Applications:
+  ${JSON.stringify(applications.map((app: any) => ({
+    id: app.id,
+    name: app.name,
+    answers: app.answers
+  })), null, 2)}
+  
+  Evaluate each application based on how well it fits the programme's requirements using the Relationship Relevance Index (RRI) components.
+  For each applicant, estimate the following 4 scores from 0.0 to 1.0:
+  - embeddingSim: Semantic similarity based on industry/keywords alignment.
+  - engagementScore: Applicant enthusiasm and depth of answers.
+  - profileMatch: Exact alignment with programme eligibility and requirements.
+  - feedbackScore: Projected feedback/success rating.
+  
+  Provide a concise, 1-sentence reasoning for the evaluation.
+  
+  Return ONLY a valid JSON array of objects with the exact schema below:
+  [
+    {
+      "id": "application_id",
+      "embeddingSim": number,
+      "engagementScore": number,
+      "profileMatch": number,
+      "feedbackScore": number,
+      "reason": "1-sentence reasoning"
+    }
+  ]
+  
+  Return raw JSON only, no markdown wrappers.`;
+
+  const rawResults = await _generateAndParseJSON(model, prompt);
+  
+  // Dynamically import computeRRI to avoid top-level import issues if any
+  const { computeRRI } = await import('./rri');
+  
+  return rawResults.map((result: any) => {
+    // Compute RRI score (0.0 - 1.0) and convert to 0-100 scale for UI
+    const rriScore = computeRRI({
+      embeddingSim: result.embeddingSim || 0,
+      engagementScore: result.engagementScore || 0,
+      profileMatch: result.profileMatch || 0,
+      feedbackScore: result.feedbackScore || 0
+    }, false);
+    
+    return {
+      id: result.id,
+      score: Math.round(rriScore * 100),
+      reason: result.reason
+    };
+  });
+}
+
 async function _generateAndParseJSON(model: any, prompt: string) {
   try {
     const result = await model.generateContent(prompt);

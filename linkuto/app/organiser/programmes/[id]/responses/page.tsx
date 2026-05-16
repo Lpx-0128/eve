@@ -3,37 +3,18 @@
 import { useState, useEffect } from "react";
 import { useParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, User, CheckCircle2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Download } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import LoadingState from "@/components/LoadingState";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
-// Mock data generator for AI screening
-const generateMockApplicants = (count: number) => {
-  const names = ["Aura AI", "Lumina Tech", "Nexas Health", "Vertex Solar", "CyberGuard", "Echo Pay", "Zenith", "Quantum Flow", "Terra Seed", "Sky Link"];
-  const reasons = [
-    "Strong technical alignment with the core cohort focus area.",
-    "Exceptional founder background and market opportunity.",
-    "Highly innovative solution in an underserved niche.",
-    "Scalable business model with clear path to profitability.",
-    "Direct synergy with existing ecosystem partners."
-  ];
-  
-  return Array.from({ length: count }, (_, i) => ({
-    id: `app-${i}`,
-    name: names[i % names.length],
-    score: Math.floor(Math.random() * (98 - 85) + 85), // High scores for shortlisted
-    reason: reasons[i % reasons.length]
-  })).sort((a, b) => b.score - a.score);
-};
-
 export default function ResponsesPage() {
   const { id } = useParams();
   const pathname = usePathname();
-  const [shortlisted, setShortlisted] = useState<any[]>([]);
-  const [targetCount, setTargetCount] = useState(5);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [programme, setProgramme] = useState<any>(null);
@@ -48,24 +29,39 @@ export default function ResponsesPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch programme to get target count
+    // Fetch programme for access control
     const fetchProgramme = async () => {
       try {
         const res = await fetch(`/api/programmes/${id}`);
         const json = await res.json();
         if (res.ok && json.data) {
           setProgramme(json.data);
-          const count = json.data.targetShortlistCount || 5;
-          setTargetCount(count);
-          setShortlisted(generateMockApplicants(count));
         }
       } catch (error) {
         console.error("Error fetching programme:", error);
+      }
+    };
+
+    // Fetch raw applications and questions
+    const fetchResponses = async () => {
+      try {
+        const res = await fetch(`/api/programmes/${id}/responses`);
+        const json = await res.json();
+        if (res.ok && json.data) {
+          setApplications(json.data.applications);
+          setQuestions(json.data.applicationQuestions);
+        }
+      } catch (error) {
+        console.error("Error fetching responses:", error);
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchProgramme();
+
+    if (id) {
+      fetchProgramme();
+      fetchResponses();
+    }
   }, [id]);
 
   if (loading) return <LoadingState variant="skeleton" />;
@@ -88,8 +84,44 @@ export default function ResponsesPage() {
     );
   }
 
+  const exportToCSV = () => {
+    const headers = [
+      "Company Name",
+      "Email Address",
+      ...questions.map((q: any) => typeof q === 'string' ? q : q.label),
+      "Applied On"
+    ];
+
+    const rows = applications.map(app => {
+      const rowData = [
+        `"${(app.name || "Unknown").replace(/"/g, '""')}"`,
+        `"${(app.email || "N/A").replace(/"/g, '""')}"`
+      ];
+      
+      questions.forEach((q: any) => {
+        const qLabel = typeof q === 'string' ? q : q.label;
+        const answer = app.answers?.[qLabel] || "No answer provided";
+        rowData.push(`"${answer.replace(/"/g, '""')}"`);
+      });
+
+      rowData.push(`"${app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Unknown"}"`);
+      return rowData.join(",");
+    });
+
+    const csvContent = [headers.map(h => `"${h}"`).join(","), ...rows].join("\n");
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${programme?.name || 'programme'}_responses.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+    <div className="max-w-[95%] mx-auto space-y-8 pb-12">
       <Link 
         href={pathname.split('/').slice(0, -1).join('/')} 
         className="inline-flex items-center gap-2 text-sm font-semibold text-text-muted hover:text-text-primary transition-colors"
@@ -97,73 +129,83 @@ export default function ResponsesPage() {
         <ArrowLeft size={16} /> Back to Programme Management
       </Link>
 
-      <PageHeader 
-        title="AI Screening Results" 
-        subtitle={`Top ${targetCount} applicants selected based on your programme criteria.`}
-      />
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <PageHeader 
+          title="Raw Application Responses" 
+          subtitle={`Viewing ${applications.length} total applications for this programme.`}
+        />
+        <button 
+          onClick={exportToCSV}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-bg-base border border-border-warm rounded-lg text-sm font-semibold text-text-primary hover:bg-border-warm/30 transition-colors"
+        >
+          <Download size={16} />
+          Export to CSV
+        </button>
+      </div>
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-card-bg rounded-[2rem] border border-border-warm shadow-sm overflow-hidden"
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border-warm bg-bg-base/50">
-                <th className="px-8 py-5 text-xs font-bold text-text-primary uppercase tracking-wider">Applicant</th>
-                <th className="px-8 py-5 text-xs font-bold text-text-primary uppercase tracking-wider">AI Score</th>
-                <th className="px-8 py-5 text-xs font-bold text-text-primary uppercase tracking-wider">AI Reasoning</th>
-                <th className="px-8 py-5 text-xs font-bold text-text-primary uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-warm">
-              {shortlisted.map((app) => (
-                <tr key={app.id} className="hover:bg-bg-base/30 transition-colors">
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
-                        <User size={18} />
-                      </div>
-                      <span className="font-heading font-semibold text-text-primary">{app.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-2">
-                      <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 text-sm font-bold border border-emerald-500/20">
-                        {app.score}%
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-6">
-                    <p className="text-sm text-text-muted max-w-md font-body leading-relaxed">
-                      {app.reason}
-                    </p>
-                  </td>
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-xs">
-                      <CheckCircle2 size={14} />
-                      Shortlisted
-                    </div>
-                  </td>
+        {applications.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-text-muted font-body">No applications have been submitted yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-border-warm bg-bg-base/50">
+                  <th className="px-6 py-4 text-xs font-bold text-text-primary uppercase tracking-wider min-w-[200px] border-r border-border-warm/50">
+                    Company Name
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-primary uppercase tracking-wider min-w-[250px] border-r border-border-warm/50">
+                    Email Address
+                  </th>
+                  {questions.map((q: any, idx) => {
+                    const qLabel = typeof q === 'string' ? q : q.label;
+                    return (
+                    <th key={idx} className="px-6 py-4 text-xs font-bold text-text-primary uppercase tracking-wider min-w-[300px] max-w-[400px] border-r border-border-warm/50 truncate" title={qLabel}>
+                      {qLabel}
+                    </th>
+                  )})}
+                  <th className="px-6 py-4 text-xs font-bold text-text-primary uppercase tracking-wider min-w-[200px]">
+                    Applied On
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border-warm">
+                {applications.map((app) => (
+                  <tr key={app.id} className="hover:bg-bg-base/30 transition-colors">
+                    <td className="px-6 py-4 border-r border-border-warm/50">
+                      <span className="font-heading font-semibold text-text-primary">{app.name || "Unknown"}</span>
+                    </td>
+                    <td className="px-6 py-4 border-r border-border-warm/50">
+                      <span className="font-body text-sm text-text-muted">{app.email || "N/A"}</span>
+                    </td>
+                    {questions.map((q: any, idx) => {
+                      const qLabel = typeof q === 'string' ? q : q.label;
+                      const answer = app.answers?.[qLabel];
+                      return (
+                      <td key={idx} className="px-6 py-4 border-r border-border-warm/50 min-w-[300px] max-w-[400px] whitespace-normal">
+                        <p className="text-sm text-text-muted font-body leading-relaxed line-clamp-3" title={answer || "No answer provided"}>
+                          {answer || <span className="italic text-text-muted/50">No answer provided</span>}
+                        </p>
+                      </td>
+                    )})}
+                    <td className="px-6 py-4">
+                      <span className="font-body text-sm text-text-muted">
+                        {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Unknown"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </motion.div>
-
-      <div className="p-6 rounded-[2rem] bg-accent/5 border border-accent/10 flex items-start gap-4">
-        <div className="p-2 rounded-lg bg-accent/10 text-accent">
-          <Sparkles size={20} />
-        </div>
-        <div>
-          <h4 className="text-sm font-bold text-text-primary mb-1">AI Logic Applied</h4>
-          <p className="text-xs text-text-muted leading-relaxed max-w-2xl">
-            This list was automatically generated by analyzing applicant profiles against your programme&apos;s industry focus and description. Only the top {targetCount} profiles that met the threshold were selected.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
