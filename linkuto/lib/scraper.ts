@@ -1,50 +1,83 @@
-import { chromium } from 'playwright';
-import * as cheerio from 'cheerio';
+import FirecrawlApp from '@mendable/firecrawl-js';
 
-export async function scrapeLinkedIn(url: string) {
-  let browser;
+const app = new FirecrawlApp({
+  apiKey: process.env.FIRECRAWL_API_KEY || ''
+});
+
+/**
+ * Crawls a startup website up to a certain limit and compiles the markdown.
+ * Uses pollInterval to wait for completion.
+ */
+export async function crawlWebsite(url: string) {
   try {
-    // Launch headless browser
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    
-    // Basic evasions
-    await page.setExtraHTTPHeaders({
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
+    console.log(`[Firecrawl] Mapping subpages for: ${url}`);
+    // 1. Get a quick map of the site to find about/team pages
+    let urlsToScrape = [url];
+    try {
+      const mapRes = await app.map(url, { limit: 3 });
+      if (mapRes && mapRes.links && mapRes.links.length > 0) {
+        // Take a few internal subpages that look useful
+        const subpages = mapRes.links
+          .filter((u: any) => {
+            const path = typeof u === 'string' ? u : u.url;
+            return path !== url && 
+                   path.startsWith(url) && 
+                   (path.includes('about') || path.includes('team') || path.includes('company') || path.includes('founder'));
+          })
+          .map((u: any) => typeof u === 'string' ? u : u.url)
+          .slice(0, 2);
+        
+        urlsToScrape = [...urlsToScrape, ...subpages];
+      }
+    } catch (mapErr) {
+      console.warn('[Firecrawl] Map failed or timed out, falling back to homepage only');
+    }
+
+    console.log(`[Firecrawl] Scraping ${urlsToScrape.length} pages in batch...`);
+    // 2. Batch scrape is much faster than a full crawl for small sets
+    const scrapeResponse = await app.scrape(urlsToScrape[0], {
+      formats: ['markdown'],
     });
 
-    // Go to LinkedIn URL
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Note: If we really want multiple pages fast, we could use Promise.all with app.scrape
+    // but for now let's just ensure we get the primary page content perfectly.
+    // If urlsToScrape has more than 1, we can optionally scrape the others.
+    let documents = [scrapeResponse];
     
-    // Extract HTML
-    const html = await page.content();
-    await browser.close();
-    
-    // Parse with Cheerio
-    const $ = cheerio.load(html);
-    
-    const name = $('h1').first().text().trim() || $('.top-card-layout__title').text().trim();
-    const headline = $('h2').first().text().trim() || $('.top-card-layout__headline').text().trim();
-    const about = $('.core-section-container__content p, .about-section p, section.summary p').text().trim();
-    
-    // Grab all list items which usually contain experience and education
-    const listItems = $('li').map((_, el) => $(el).text().replace(/\s+/g, ' ').trim()).get();
-    
-    // Fallback: Dump body text
-    const bodyText = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 8000); 
+    if (urlsToScrape.length > 1) {
+      const remaining = await Promise.all(
+        urlsToScrape.slice(1).map(u => app.scrape(u, { formats: ['markdown'] }).catch(() => null))
+      );
+      documents = [...documents, ...remaining.filter(d => d !== null)];
+    }
+
+    const combinedMarkdown = documents
+      .map(doc => `--- ${doc.metadata?.url || 'Page'} ---\n${doc.markdown || ''}`)
+      .join('\n\n');
 
     return {
       url,
-      name,
-      headline,
-      about,
-      listItems,
-      rawTextSummary: bodyText
+      markdown: combinedMarkdown.substring(0, 30000)
     };
   } catch (error) {
-    if (browser) await browser.close();
-    console.error('Scraping error:', error);
-    throw new Error('Failed to scrape LinkedIn profile.');
+    console.error('Crawl error:', error);
+    throw new Error('Failed to analyze startup website.');
+  }
+}
+
+/**
+ * Perform a web search using Firecrawl to find recent interactions or news about the CEO.
+ */
+export async function searchFirecrawl(query: string) {
+  try {
+    const results = await app.search(query, {
+      limit: 3,
+      scrapeOptions: { formats: ['markdown'] }
+    });
+
+    return results || [];
+  } catch (error) {
+    console.error('Search error:', error);
+    return []; // Return empty instead of throwing to prevent breaking the whole pipeline
   }
 }

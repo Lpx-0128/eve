@@ -39,9 +39,9 @@ export default function IngestProfilePage() {
   return (
     <div className="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Profile Ingestion Engine</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Startup Ingestion Engine</h1>
         <p className="mt-2 text-lg text-gray-500">
-          Enter a public LinkedIn URL below. The system will use Playwright to scrape the page and Gemini 3.1 Flash Lite to extract structured data.
+          Enter a startup website URL below. The system will use Firecrawl to deeply analyze the site, extract company info, and search for recent interactions of the CEO via Gemini.
         </p>
       </div>
 
@@ -50,7 +50,7 @@ export default function IngestProfilePage() {
           <form onSubmit={handleIngest} className="flex gap-4 items-end">
             <div className="flex-1">
               <label htmlFor="url" className="block text-sm font-medium text-gray-700">
-                LinkedIn Profile URL
+                Startup Website URL
               </label>
               <div className="mt-1">
                 <input
@@ -58,7 +58,7 @@ export default function IngestProfilePage() {
                   name="url"
                   id="url"
                   className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-3 border"
-                  placeholder="https://linkedin.com/in/username"
+                  placeholder="https://example-startup.com"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   required
@@ -70,7 +70,7 @@ export default function IngestProfilePage() {
               disabled={loading}
               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Ingesting...' : 'Ingest Profile'}
+              {loading ? 'Crawling & Analyzing...' : 'Ingest Startup'}
             </button>
           </form>
         </div>
@@ -86,7 +86,7 @@ export default function IngestProfilePage() {
             <div className="h-12 w-12 bg-blue-400 rounded-full mb-4"></div>
             <div className="h-4 bg-blue-400 rounded w-3/4 mb-2"></div>
             <div className="h-4 bg-blue-400 rounded w-1/2"></div>
-            <p className="mt-4 text-blue-700 font-medium">Scraping LinkedIn and enriching via Gemini...</p>
+            <p className="mt-4 text-blue-700 font-medium">Firecrawl is analyzing the site and Gemini is searching for the CEO...</p>
           </div>
         </motion.div>
       )}

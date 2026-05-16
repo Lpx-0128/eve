@@ -1,30 +1,42 @@
 import { NextResponse } from 'next/server';
-import { scrapeLinkedIn } from '@/lib/scraper';
-import { enrichProfile } from '@/lib/gemini';
+import { crawlWebsite, searchFirecrawl } from '@/lib/scraper';
+import { extractCompanyAndCEO, compileFinalProfile } from '@/lib/gemini';
 import { db } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
     const { url } = await request.json();
 
-    if (!url || typeof url !== 'string' || !url.includes('linkedin.com')) {
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       return NextResponse.json(
-        { error: 'Valid LinkedIn URL is required' },
+        { error: 'Valid website URL is required (must start with http)' },
         { status: 400 }
       );
     }
 
-    console.log(`[API] Ingesting profile: ${url}`);
+    console.log(`[API] Ingesting startup website: ${url}`);
     
-    // 1. Scrape raw data
-    console.log(`[API] Starting scraper...`);
-    const rawData = await scrapeLinkedIn(url);
+    // 1. Crawl startup website
+    console.log(`[API] Starting Firecrawl crawl...`);
+    const { markdown } = await crawlWebsite(url);
     
-    // 2. Enrich with Gemini
-    console.log(`[API] Enriching with Gemini...`);
-    const structuredProfile = await enrichProfile(rawData);
+    // 2. Extract basic company info & CEO name
+    console.log(`[API] Extracting info with Gemini...`);
+    let profileData = await extractCompanyAndCEO(markdown);
     
-    // 3. Save to Firestore
+    let ceoInfo = [];
+    
+    // 3. If CEO is found, search for recent info
+    if (profileData.ceo_name && profileData.ceo_name.trim().length > 0) {
+      console.log(`[API] CEO found: ${profileData.ceo_name}. Searching web for interactions...`);
+      ceoInfo = await searchFirecrawl(`"${profileData.ceo_name}" "${profileData.name}" recent news interactions`);
+    }
+
+    // 4. Compile final rich profile
+    console.log(`[API] Compiling final profile...`);
+    const structuredProfile = await compileFinalProfile(profileData, ceoInfo);
+    
+    // 5. Save to Firestore
     console.log(`[API] Saving to Firestore...`);
     const entityRef = db.collection('entities').doc();
     

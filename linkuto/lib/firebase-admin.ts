@@ -11,9 +11,7 @@ if (!admin.apps.length) {
         if (keyString.startsWith("'") && keyString.endsWith("'")) {
           keyString = keyString.slice(1, -1);
         }
-        // Handle literal \n that dotenv might not parse correctly
-        keyString = keyString.replace(/\\n/g, '\n');
-        
+
         const serviceAccount = JSON.parse(keyString);
         console.log('Parsed service account with project_id:', serviceAccount.project_id);
         credential = admin.credential.cert(serviceAccount);
