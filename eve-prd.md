@@ -296,6 +296,82 @@ This is the recommended order of implementation for a single developer. Each pha
 
 **Demo checkpoint:** Login page → Google sign-in → lands on dashboard shell
 
+#### 🧪 Phase 0 Self-Test Suite
+> **AI IDE instruction:** After completing Phase 0, run ALL tests below. If any test fails, fix the issue and re-run that test before proceeding. Do not move to Phase 1 until all tests in this suite pass.
+
+**Test P0-1 — Firebase connection**
+```typescript
+// tests/phase0/firebase.test.ts
+import { db } from '@/lib/firebase-admin';
+
+describe('P0-1: Firebase Admin connection', () => {
+  it('should connect to Firestore and write/read a test document', async () => {
+    const ref = db.collection('_test').doc('connectivity');
+    await ref.set({ ping: true, ts: Date.now() });
+    const snap = await ref.get();
+    expect(snap.exists).toBe(true);
+    expect(snap.data()?.ping).toBe(true);
+    await ref.delete(); // cleanup
+  });
+});
+```
+**Pass criteria:** Document written and read back without error. Cleanup succeeds.
+
+**Test P0-2 — Environment variables loaded**
+```typescript
+// tests/phase0/env.test.ts
+describe('P0-2: Required env vars present', () => {
+  const required = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'FIREBASE_ADMIN_KEY',
+    'GEMINI_API_KEY',
+  ];
+  required.forEach(key => {
+    it(`should have ${key} defined`, () => {
+      expect(process.env[key]).toBeDefined();
+      expect(process.env[key]!.length).toBeGreaterThan(0);
+    });
+  });
+});
+```
+**Pass criteria:** All four env vars present and non-empty.
+
+**Test P0-3 — Three Firestore collections exist and are writable**
+```typescript
+// tests/phase0/collections.test.ts
+import { db } from '@/lib/firebase-admin';
+
+describe('P0-3: Firestore collections writable', () => {
+  const collections = ['entities', 'relationships', 'programmes'];
+  collections.forEach(col => {
+    it(`should write to ${col} collection`, async () => {
+      const ref = db.collection(col).doc('__test__');
+      await expect(ref.set({ test: true })).resolves.not.toThrow();
+      await ref.delete();
+    });
+  });
+});
+```
+**Pass criteria:** All three collections writable without permission errors.
+
+**Test P0-4 — App serves on localhost**
+```bash
+# Run in terminal — AI IDE should execute this and check exit code
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
+# Expected output: 200
+```
+**Pass criteria:** HTTP 200 returned from root route. If not, check `npm run dev` is running.
+
+**Test P0-5 — Login route renders**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/login
+# Expected output: 200
+```
+**Pass criteria:** `/login` returns 200 (page exists, no 404 or 500).
+
+**🔁 Loop condition:** If any test above fails, the AI IDE must diagnose the failure output, apply a fix, restart the dev server if needed, and re-run only the failing test. Repeat until all five pass before proceeding to Phase 1.
+
 ---
 
 ### Phase 1 — Profile Ingestion Engine (Hour 1–4)
@@ -373,6 +449,93 @@ This is the recommended order of implementation for a single developer. Each pha
 
 **Demo checkpoint:** Console log showing embedding vector generated for a profile
 
+#### 🧪 Phase 2 Self-Test Suite
+> **AI IDE instruction:** Run ALL tests below after completing Phase 2. Fix and re-run failing tests before moving to Phase 3.
+
+**Test P2-1 — Gemini embedding returns a vector of the correct dimension**
+```typescript
+// tests/phase2/embedding.test.ts
+import { generateEmbedding } from '@/lib/embeddings';
+
+describe('P2-1: Embedding vector shape', () => {
+  it('should return a non-empty number array', async () => {
+    const vector = await generateEmbedding({ name: 'Ada', skills: ['Computing'], summary: 'Pioneer.' });
+    expect(Array.isArray(vector)).toBe(true);
+    expect(vector.length).toBeGreaterThan(0);
+    expect(typeof vector[0]).toBe('number');
+  }, 15000);
+
+  it('should return values between -1 and 1', async () => {
+    const vector = await generateEmbedding({ name: 'Test', skills: ['AI'], summary: 'Test.' });
+    vector.forEach(v => {
+      expect(v).toBeGreaterThanOrEqual(-1);
+      expect(v).toBeLessThanOrEqual(1);
+    });
+  }, 15000);
+});
+```
+**Pass criteria:** Non-empty number array; all values within [-1, 1].
+
+**Test P2-2 — Cosine similarity returns correct values for known inputs**
+```typescript
+// tests/phase2/cosine.test.ts
+import { cosineSimilarity } from '@/lib/embeddings';
+
+describe('P2-2: Cosine similarity correctness', () => {
+  it('should return 1.0 for identical vectors', () => {
+    const v = [0.1, 0.5, 0.3, 0.8];
+    expect(cosineSimilarity(v, v)).toBeCloseTo(1.0, 5);
+  });
+  it('should return 0.0 for orthogonal vectors', () => {
+    expect(cosineSimilarity([1, 0, 0], [0, 1, 0])).toBeCloseTo(0.0, 5);
+  });
+  it('should return -1.0 for opposite vectors', () => {
+    expect(cosineSimilarity([1, 0, 0], [-1, 0, 0])).toBeCloseTo(-1.0, 5);
+  });
+});
+```
+**Pass criteria:** All three similarity assertions pass exactly.
+
+**Test P2-3 — Similar profiles score higher than dissimilar ones**
+```typescript
+// tests/phase2/similarity-order.test.ts
+import { generateEmbedding, cosineSimilarity } from '@/lib/embeddings';
+
+describe('P2-3: Embedding semantic ordering', () => {
+  it('should score fintech mentor higher against fintech startup than biotech', async () => {
+    const mentor = await generateEmbedding({ name: 'Alice', skills: ['Fintech', 'Payments'], summary: 'Fintech operator.' });
+    const fintech = await generateEmbedding({ name: 'PayX', skills: ['Fintech', 'API Banking'], summary: 'Payment startup.' });
+    const biotech = await generateEmbedding({ name: 'BioGen', skills: ['Genomics'], summary: 'Drug discovery.' });
+    expect(cosineSimilarity(mentor, fintech)).toBeGreaterThan(cosineSimilarity(mentor, biotech));
+  }, 30000);
+});
+```
+**Pass criteria:** Fintech-to-fintech similarity strictly greater than fintech-to-biotech.
+
+**Test P2-4 — Embedding stored on Firestore entity**
+```typescript
+// tests/phase2/persistence.test.ts
+import { db } from '@/lib/firebase-admin';
+import { generateEmbedding } from '@/lib/embeddings';
+
+describe('P2-4: Embedding persisted to Firestore', () => {
+  it('should store embedding_vector on an entity document', async () => {
+    const vector = await generateEmbedding({ name: 'Embed Test', skills: ['AI'], summary: 'Test.' });
+    const ref = await db.collection('entities').add({
+      type: 'participant', profile_data: { name: 'Embed Test' },
+      embedding_vector: vector, last_updated: new Date(),
+    });
+    const snap = await db.collection('entities').doc(ref.id).get();
+    expect(Array.isArray(snap.data()?.embedding_vector)).toBe(true);
+    expect(snap.data()?.embedding_vector.length).toBeGreaterThan(0);
+    await ref.delete();
+  }, 20000);
+});
+```
+**Pass criteria:** Entity document contains a non-empty `embedding_vector` array after save.
+
+**🔁 Loop condition:** If P2-3 fails, expand the text fed to `generateEmbedding` to include `roles` and `company_history`. Re-run P2-3 after each fix. Do not proceed to Phase 3 until all four tests pass.
+
 ---
 
 ### Phase 3 — Recommendation Engine (Hour 6–9)
@@ -407,6 +570,114 @@ This is the recommended order of implementation for a single developer. Each pha
 
 **Demo checkpoint:** Click "Generate Matches" → see 10 ranked mentor cards with scores and explanations
 
+#### 🧪 Phase 3 Self-Test Suite
+> **AI IDE instruction:** Run ALL tests below after Phase 3. Seed Firestore with at least one participant entity and one mentor entity before running. Clean up after.
+
+**Test P3-1 — RRI formula is mathematically correct**
+```typescript
+// tests/phase3/rri.test.ts
+import { computeRRI } from '@/lib/rri';
+
+describe('P3-1: RRI formula correctness', () => {
+  it('should compute as weighted sum', () => {
+    const result = computeRRI(0.8, 0.6, 0.7, 0.5);
+    expect(result).toBeCloseTo((0.4*0.8)+(0.3*0.6)+(0.2*0.7)+(0.1*0.5), 6);
+  });
+  it('should return 1.0 for all-perfect inputs', () => {
+    expect(computeRRI(1, 1, 1, 1)).toBeCloseTo(1.0, 6);
+  });
+  it('should return 0.0 for all-zero inputs', () => {
+    expect(computeRRI(0, 0, 0, 0)).toBeCloseTo(0.0, 6);
+  });
+});
+```
+**Pass criteria:** All three RRI arithmetic assertions pass exactly.
+
+**Test P3-2 — /api/recommend returns correct response shape**
+```typescript
+// tests/phase3/api-shape.test.ts
+describe('P3-2: /api/recommend response shape', () => {
+  it('should return 200 and results array with required fields', async () => {
+    const res = await fetch('http://localhost:3000/api/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.TEST_PARTICIPANT_ID, type: 'mentor' }),
+    });
+    expect(res.status).toBe(200);
+    const { results } = await res.json();
+    expect(Array.isArray(results)).toBe(true);
+    if (results.length > 0) {
+      expect(results[0]).toHaveProperty('id');
+      expect(results[0]).toHaveProperty('score');
+      expect(results[0]).toHaveProperty('explanation');
+      expect(['high', 'medium', 'low']).toContain(results[0].confidence);
+    }
+  }, 20000);
+});
+```
+**Pass criteria:** 200 status; `results` has all four required fields with valid confidence value.
+
+**Test P3-3 — Results are sorted in descending score order**
+```typescript
+// tests/phase3/ranking.test.ts
+describe('P3-3: Results ranked highest-first', () => {
+  it('should return scores in descending order', async () => {
+    const res = await fetch('http://localhost:3000/api/recommend', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.TEST_PARTICIPANT_ID, type: 'mentor' }),
+    });
+    const { results } = await res.json();
+    for (let i = 0; i < results.length - 1; i++) {
+      expect(results[i].score).toBeGreaterThanOrEqual(results[i + 1].score);
+    }
+  }, 20000);
+});
+```
+**Pass criteria:** Each consecutive score pair satisfies `scores[i] >= scores[i+1]`.
+
+**Test P3-4 — Explanation is a non-empty string on every result**
+```typescript
+// tests/phase3/explanation.test.ts
+describe('P3-4: Explanations are non-empty strings', () => {
+  it('should return a human-readable explanation per result', async () => {
+    const res = await fetch('http://localhost:3000/api/recommend', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.TEST_PARTICIPANT_ID, type: 'mentor' }),
+    });
+    const { results } = await res.json();
+    results.forEach((r: any) => {
+      expect(typeof r.explanation).toBe('string');
+      expect(r.explanation.trim().length).toBeGreaterThan(10);
+    });
+  }, 20000);
+});
+```
+**Pass criteria:** Every explanation is a string with more than 10 characters.
+
+**Test P3-5 — /api/recommend returns 400/404 for invalid input**
+```typescript
+// tests/phase3/validation.test.ts
+describe('P3-5: Input validation', () => {
+  it('should return 400 when entity_id is missing', async () => {
+    const res = await fetch('http://localhost:3000/api/recommend', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'mentor' }),
+    });
+    expect(res.status).toBe(400);
+  });
+  it('should return 404 when entity_id does not exist', async () => {
+    const res = await fetch('http://localhost:3000/api/recommend', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: 'nonexistent_abc123', type: 'mentor' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+```
+**Pass criteria:** Missing `entity_id` → 400; unknown ID → 404. No 500 errors.
+
+**🔁 Loop condition:** If P3-3 fails, check that results are sorted by `rri_score` descending before slicing. If P3-4 fails, increase Gemini `max_tokens` or simplify the explanation prompt. Re-run only the failing test after each fix.
+
 ---
 
 ### Phase 4 — Dashboards (Hour 9–13)
@@ -435,6 +706,102 @@ This is the recommended order of implementation for a single developer. Each pha
   - Accept/Decline interaction feedback
 
 **Demo checkpoint:** Full organiser → participant → mentor flow walkable in live demo
+
+#### 🧪 Phase 4 Self-Test Suite
+> **AI IDE instruction:** These tests verify dashboard routes exist, render without crashing, and surface correct data. Run with seeded Firestore data.
+
+**Test P4-1 — All three dashboard routes return 200**
+```bash
+for route in organiser participant mentor; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/dashboard/$route)
+  echo "$route: $STATUS"
+  [ "$STATUS" = "200" ] || echo "FAIL: $route returned $STATUS"
+done
+```
+**Pass criteria:** All three print `200`. No 404 or 500.
+
+**Test P4-2 — Organiser dashboard renders participant count and action button**
+```typescript
+// tests/phase4/organiser.test.ts
+import { render, screen } from '@testing-library/react';
+import OrganiserDashboard from '@/app/dashboard/organiser/page';
+
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: jest.fn().mockReturnValue({
+    data: { participants: ['id1', 'id2', 'id3'], mentors: ['m1'], sponsors: [] },
+    isLoading: false,
+  }),
+}));
+
+describe('P4-2: Organiser dashboard content', () => {
+  it('should render a participant count', () => {
+    render(<OrganiserDashboard />);
+    expect(screen.getByText(/participant/i)).toBeInTheDocument();
+  });
+  it('should render a "Generate Matches" button', () => {
+    render(<OrganiserDashboard />);
+    expect(screen.getByRole('button', { name: /generate matches/i })).toBeInTheDocument();
+  });
+});
+```
+**Pass criteria:** Participant text visible; "Generate Matches" button present.
+
+**Test P4-3 — Participant dashboard renders recommendation cards**
+```typescript
+// tests/phase4/participant.test.ts
+import { render, screen } from '@testing-library/react';
+import ParticipantDashboard from '@/app/dashboard/participant/page';
+
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: jest.fn().mockReturnValue({
+    data: {
+      recommendations: [
+        { id: 'm1', score: 0.92, explanation: 'Domain alignment in fintech.', confidence: 'high' },
+      ],
+    },
+    isLoading: false,
+  }),
+}));
+
+describe('P4-3: Participant dashboard recommendations', () => {
+  it('should render at least one recommendation card', () => {
+    render(<ParticipantDashboard />);
+    const cards = screen.getAllByTestId('recommendation-card');
+    expect(cards.length).toBeGreaterThan(0);
+  });
+  it('should render a score badge', () => {
+    render(<ParticipantDashboard />);
+    expect(screen.getByText('0.92')).toBeInTheDocument();
+  });
+});
+```
+**Pass criteria:** At least one card with `data-testid="recommendation-card"` renders; score visible.
+
+**Test P4-4 — Loading and empty states render without crash**
+```typescript
+// tests/phase4/states.test.ts
+import { render, screen } from '@testing-library/react';
+import OrganiserDashboard from '@/app/dashboard/organiser/page';
+
+const mockUseQuery = jest.fn();
+jest.mock('@tanstack/react-query', () => ({ useQuery: mockUseQuery }));
+
+describe('P4-4: Loading and empty states', () => {
+  it('should render a loading indicator when isLoading is true', () => {
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
+    render(<OrganiserDashboard />);
+    expect(screen.getByTestId('loading-indicator')).toBeInTheDocument();
+  });
+  it('should render an empty state when there is no data', () => {
+    mockUseQuery.mockReturnValue({ data: { participants: [], mentors: [], sponsors: [] }, isLoading: false });
+    render(<OrganiserDashboard />);
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+  });
+});
+```
+**Pass criteria:** Both `data-testid` elements render without throwing.
+
+**🔁 Loop condition:** If P4-2 or P4-3 fail due to missing `data-testid` attributes, add them to the relevant components and re-run. Fix the component, not the test.
 
 ---
 
@@ -468,6 +835,88 @@ const edges = relationships.map(r => ({
 
 **Demo checkpoint:** Animated graph rendering with clickable nodes showing profiles
 
+#### 🧪 Phase 5 Self-Test Suite
+> **AI IDE instruction:** Graph tests verify data mapping and React Flow construction, not visual rendering. Run with seeded relationship data.
+
+**Test P5-1 — Entities and relationships correctly mapped to nodes and edges**
+```typescript
+// tests/phase5/graph-mapping.test.ts
+import { mapEntitiesToNodes, mapRelationshipsToEdges } from '@/lib/graph';
+
+const mockEntities = [
+  { id: 'e1', type: 'participant', profile_data: { name: 'Startup A' } },
+  { id: 'e2', type: 'mentor', profile_data: { name: 'Mentor B' } },
+];
+const mockRelationships = [
+  { relationship_id: 'r1', entity_a_id: 'e1', entity_b_id: 'e2', strength_score: 0.87 },
+];
+
+describe('P5-1: Graph data mapping', () => {
+  it('should map entities to nodes with correct id and label', () => {
+    const nodes = mapEntitiesToNodes(mockEntities);
+    expect(nodes).toHaveLength(2);
+    expect(nodes[0].id).toBe('e1');
+    expect(nodes[0].data.label).toBe('Startup A');
+  });
+  it('should map relationships to edges with correct source and target', () => {
+    const edges = mapRelationshipsToEdges(mockRelationships);
+    expect(edges[0].source).toBe('e1');
+    expect(edges[0].target).toBe('e2');
+  });
+  it('should encode strength_score as strokeWidth (higher = thicker)', () => {
+    const lowEdges = mapRelationshipsToEdges([{ relationship_id: 'r1', entity_a_id: 'e1', entity_b_id: 'e2', strength_score: 0.3 }]);
+    const highEdges = mapRelationshipsToEdges([{ relationship_id: 'r2', entity_a_id: 'e1', entity_b_id: 'e2', strength_score: 0.9 }]);
+    expect(highEdges[0].style.strokeWidth).toBeGreaterThan(lowEdges[0].style.strokeWidth);
+  });
+});
+```
+**Pass criteria:** Nodes have correct `id`/`label`; edges have correct `source`/`target`; higher score = higher `strokeWidth`.
+
+**Test P5-2 — Graph route returns 200**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/graph
+# Expected: 200
+```
+**Pass criteria:** `/graph` returns 200.
+
+**Test P5-3 — EntityGraph component renders node labels from props**
+```typescript
+// tests/phase5/graph-render.test.ts
+import { render, screen } from '@testing-library/react';
+import EntityGraph from '@/components/EntityGraph';
+
+jest.mock('reactflow', () => ({
+  ReactFlow: ({ nodes }: any) => (
+    <div data-testid="react-flow">
+      {nodes.map((n: any) => <div key={n.id} data-testid="graph-node">{n.data.label}</div>)}
+    </div>
+  ),
+  Background: () => null,
+  Controls: () => null,
+}));
+
+const nodes = [
+  { id: 'e1', type: 'entityNode', data: { label: 'Startup A', type: 'participant' }, position: { x: 0, y: 0 } },
+  { id: 'e2', type: 'entityNode', data: { label: 'Mentor B', type: 'mentor' }, position: { x: 200, y: 0 } },
+];
+const edges = [{ id: 'r1', source: 'e1', target: 'e2', style: { strokeWidth: 5 }, label: '0.87' }];
+
+describe('P5-3: EntityGraph renders nodes', () => {
+  it('should render one node per entity', () => {
+    render(<EntityGraph nodes={nodes} edges={edges} />);
+    expect(screen.getAllByTestId('graph-node')).toHaveLength(2);
+  });
+  it('should render node labels correctly', () => {
+    render(<EntityGraph nodes={nodes} edges={edges} />);
+    expect(screen.getByText('Startup A')).toBeInTheDocument();
+    expect(screen.getByText('Mentor B')).toBeInTheDocument();
+  });
+});
+```
+**Pass criteria:** Both node labels render in the mocked ReactFlow container.
+
+**🔁 Loop condition:** If P5-1 fails on stroke width ordering, verify `strokeWidth` is computed as `score * constant` (not inverted). If P5-3 fails, ensure `EntityGraph` accepts `nodes` and `edges` as props rather than fetching internally.
+
 ---
 
 ### Phase 6 — Google Integrations (Hour 16–19)
@@ -500,6 +949,101 @@ const edges = relationships.map(r => ({
 
 **Demo checkpoint:** Click "Accept Match" → judge sees a real Gmail + Calendar invite appear live
 
+#### 🧪 Phase 6 Self-Test Suite
+> **AI IDE instruction:** Live Gmail/Calendar tests require valid OAuth tokens. If tokens are unavailable, run `[MOCK]` variants only and skip the live tests — do not block on them.
+
+**Test P6-1 — /api/accept-match returns 200 and creates a relationship [MOCK]**
+```typescript
+// tests/phase6/accept-match.test.ts
+import { db } from '@/lib/firebase-admin';
+
+jest.mock('@/lib/google-apis', () => ({
+  sendMatchEmail: jest.fn().mockResolvedValue({ id: 'mock-email-id' }),
+  createCalendarInvite: jest.fn().mockResolvedValue({ id: 'mock-event-id' }),
+}));
+
+describe('P6-1: Accept match endpoint [MOCK]', () => {
+  let relationshipId: string;
+
+  it('should return 200 and a relationship_id', async () => {
+    const res = await fetch('http://localhost:3000/api/accept-match', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_a_id: 'test-participant-001', entity_b_id: 'test-mentor-001',
+        score: 0.88, explanation: 'Strong fintech alignment.',
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.relationship_id).toBeDefined();
+    relationshipId = data.relationship_id;
+  });
+
+  it('should persist the relationship to Firestore', async () => {
+    const snap = await db.collection('relationships').doc(relationshipId).get();
+    expect(snap.exists).toBe(true);
+    expect(snap.data()?.strength_score).toBe(0.88);
+    await db.collection('relationships').doc(relationshipId).delete();
+  });
+});
+```
+**Pass criteria:** 200 response; `relationship_id` returned; Firestore document with correct `strength_score`.
+
+**Test P6-2 — Google API wrappers callable without throwing [MOCK]**
+```typescript
+// tests/phase6/google-apis.test.ts
+jest.mock('@/lib/google-apis', () => ({
+  sendMatchEmail: jest.fn().mockResolvedValue({ id: 'email-123' }),
+  createCalendarInvite: jest.fn().mockResolvedValue({ id: 'event-456' }),
+}));
+import { sendMatchEmail, createCalendarInvite } from '@/lib/google-apis';
+
+describe('P6-2: Google API wrappers [MOCK]', () => {
+  it('sendMatchEmail should resolve with an id', async () => {
+    const result = await sendMatchEmail({ to: 'mentor@test.com', subject: 'Match', body: 'You have a match.' });
+    expect(result.id).toBeDefined();
+  });
+  it('createCalendarInvite should resolve with an id', async () => {
+    const result = await createCalendarInvite({ summary: 'Eve Match', attendees: ['a@b.com'], startTime: new Date().toISOString() });
+    expect(result.id).toBeDefined();
+  });
+});
+```
+**Pass criteria:** Both wrappers resolve without throwing; IDs returned.
+
+**Test P6-3 — Programme document updated after match acceptance [MOCK]**
+```typescript
+// tests/phase6/programme-update.test.ts
+import { db } from '@/lib/firebase-admin';
+
+jest.mock('@/lib/google-apis', () => ({
+  sendMatchEmail: jest.fn().mockResolvedValue({}),
+  createCalendarInvite: jest.fn().mockResolvedValue({}),
+}));
+
+describe('P6-3: Programme updated on match acceptance', () => {
+  it('should add the match to the programme accepted_matches list', async () => {
+    const progRef = await db.collection('programmes').add({
+      status: 'active', participants: ['test-participant-001'], mentors: ['test-mentor-001'],
+      sponsors: [], accepted_matches: [],
+    });
+    await fetch('http://localhost:3000/api/accept-match', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_a_id: 'test-participant-001', entity_b_id: 'test-mentor-001',
+        programme_id: progRef.id, score: 0.88, explanation: 'Test match.',
+      }),
+    });
+    const snap = await progRef.get();
+    expect(snap.data()?.accepted_matches?.length).toBeGreaterThan(0);
+    await progRef.delete();
+  }, 20000);
+});
+```
+**Pass criteria:** `accepted_matches` array grows by at least one entry.
+
+**🔁 Loop condition:** If P6-1 fails with 500, verify the Google API mock intercepts before the route executes. If persistence fails, confirm the route writes the relationship before returning the response.
+
 ---
 
 ### Phase 7 — Feedback Loop (Hour 19–21)
@@ -511,6 +1055,104 @@ const edges = relationships.map(r => ({
   - Triggers RRI recomputation
   - Updates entity engagement scores
 - [ ] Show updated score on relationship card
+
+#### 🧪 Phase 7 Self-Test Suite
+> **AI IDE instruction:** Run ALL tests below after Phase 7. These verify the complete feedback → score update loop end-to-end.
+
+**Test P7-1 — /api/feedback updates feedback_score on relationship**
+```typescript
+// tests/phase7/feedback.test.ts
+import { db } from '@/lib/firebase-admin';
+
+describe('P7-1: Feedback score persistence', () => {
+  let relId: string;
+
+  beforeAll(async () => {
+    const ref = await db.collection('relationships').add({
+      entity_a_id: 'p1', entity_b_id: 'm1', strength_score: 0.75,
+      feedback_score: 0,
+      score_breakdown: { embedding_similarity: 0.8, engagement_score: 0.7, profile_match: 0.6 },
+      interaction_history: [],
+    });
+    relId = ref.id;
+  });
+  afterAll(async () => { await db.collection('relationships').doc(relId).delete(); });
+
+  it('should return 200 and update feedback_score', async () => {
+    const res = await fetch('http://localhost:3000/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationship_id: relId, rating: 4, note: 'Very useful.' }),
+    });
+    expect(res.status).toBe(200);
+    const snap = await db.collection('relationships').doc(relId).get();
+    expect(snap.data()?.feedback_score).toBeGreaterThan(0);
+  });
+});
+```
+**Pass criteria:** 200 response; `feedback_score` is non-zero after the call.
+
+**Test P7-2 — RRI is recomputed and persisted after feedback**
+```typescript
+// tests/phase7/rri-recompute.test.ts
+import { db } from '@/lib/firebase-admin';
+
+describe('P7-2: Strength score recomputed after feedback', () => {
+  let relId: string;
+
+  beforeAll(async () => {
+    const ref = await db.collection('relationships').add({
+      entity_a_id: 'p1', entity_b_id: 'm1', strength_score: 0.60, feedback_score: 0,
+      score_breakdown: { embedding_similarity: 0.6, engagement_score: 0.5, profile_match: 0.6 },
+      interaction_history: [],
+    });
+    relId = ref.id;
+  });
+  afterAll(async () => { await db.collection('relationships').doc(relId).delete(); });
+
+  it('should update strength_score after a 5-star rating', async () => {
+    const original = 0.60;
+    await fetch('http://localhost:3000/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationship_id: relId, rating: 5 }),
+    });
+    const snap = await db.collection('relationships').doc(relId).get();
+    expect(snap.data()?.strength_score).not.toBe(original);
+    expect(typeof snap.data()?.strength_score).toBe('number');
+  });
+});
+```
+**Pass criteria:** `strength_score` changes from its original value after 5-star rating.
+
+**Test P7-3 — Feedback endpoint returns 400 for invalid inputs**
+```typescript
+// tests/phase7/validation.test.ts
+describe('P7-3: Feedback validation', () => {
+  it('should return 400 for rating = 0', async () => {
+    const res = await fetch('http://localhost:3000/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationship_id: 'some-id', rating: 0 }),
+    });
+    expect(res.status).toBe(400);
+  });
+  it('should return 400 for rating = 6', async () => {
+    const res = await fetch('http://localhost:3000/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationship_id: 'some-id', rating: 6 }),
+    });
+    expect(res.status).toBe(400);
+  });
+  it('should return 400 when relationship_id is missing', async () => {
+    const res = await fetch('http://localhost:3000/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: 3 }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+```
+**Pass criteria:** All three invalid inputs return 400. No 500 errors.
+
+**🔁 Loop condition:** If P7-2 fails and the score doesn't change, the RRI recompute step is missing or not persisting. Check that `/api/feedback` calls `computeRRI` and then calls `doc.update({ strength_score: newRRI })` before responding.
 
 ---
 
@@ -527,9 +1169,202 @@ const edges = relationships.map(r => ({
   ```
 - [ ] Final walkthrough: sign-in → profile → match → graph → accept → email → done
 
----
+#### 🧪 Phase 8 — Full End-to-End Integration Test Suite
+> **AI IDE instruction:** This is the final gate. Run the complete E2E suite against the deployed Cloud Run URL (set `E2E_BASE_URL`) or localhost with seeded data. Every test must pass before the project is demo-ready. This suite simulates the exact judge demo flow from Section 11. Do NOT skip any test group. Fix, re-deploy if needed, and re-run until the full suite is green.
 
-## 11. Demo Script (Live Judging)
+**Pre-flight: seed demo data**
+```typescript
+// tests/e2e/seed.ts — run once: npx ts-node tests/e2e/seed.ts
+import { db } from '@/lib/firebase-admin';
+
+async function seedDemoData() {
+  const participant = await db.collection('entities').add({
+    type: 'participant',
+    profile_data: { name: 'PayX Startup', skills: ['Fintech', 'API Banking', 'B2B SaaS'], roles: ['Founder'], company_history: [], education: [], summary: 'B2B payment infrastructure startup raising Series A.' },
+    embedding_vector: null, last_updated: new Date(),
+  });
+  const mentor = await db.collection('entities').add({
+    type: 'mentor',
+    profile_data: { name: 'Alice Chen', skills: ['Fintech', 'Payments', 'Fundraising'], roles: ['Partner'], company_history: [], education: [], summary: 'Fintech operator with 15 years in payments.' },
+    embedding_vector: null, last_updated: new Date(),
+  });
+  const programme = await db.collection('programmes').add({
+    status: 'active', participants: [participant.id], mentors: [mentor.id],
+    sponsors: [], accepted_matches: [], outcomes: {},
+  });
+  console.log('Seed complete:', { participantId: participant.id, mentorId: mentor.id, programmeId: programme.id });
+}
+seedDemoData();
+```
+
+**E2E-1 — Profile ingestion returns complete profile**
+```typescript
+// tests/e2e/e2e.test.ts
+const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
+
+describe('E2E-1: Profile ingestion', () => {
+  it('should enrich a manual profile with all required fields', async () => {
+    const res = await fetch(`${BASE}/api/enrich-profile`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ manualFormInput: { name: 'E2E Founder', headline: 'CEO', skills: ['B2B SaaS'], experience: ['CEO (2022–present)'], education: ['NUS 2021'] } }),
+    });
+    expect(res.status).toBe(200);
+    const { profile } = await res.json();
+    ['name', 'roles', 'skills', 'company_history', 'education', 'summary'].forEach(f => {
+      expect(profile[f]).toBeDefined();
+    });
+  }, 20000);
+});
+```
+**Pass criteria:** All 6 profile fields defined; response in < 20s.
+
+**E2E-2 — Embedding generated and persisted**
+```typescript
+describe('E2E-2: Embedding pipeline', () => {
+  it('should generate and persist an embedding for the seeded participant', async () => {
+    const res = await fetch(`${BASE}/api/generate-embedding`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.E2E_PARTICIPANT_ID }),
+    });
+    expect(res.status).toBe(200);
+    const { vector_length } = await res.json();
+    expect(vector_length).toBeGreaterThan(0);
+  }, 20000);
+});
+```
+**Pass criteria:** 200 response; `vector_length > 0`.
+
+**E2E-3 — Recommendation engine returns ranked results**
+```typescript
+describe('E2E-3: Recommendation engine', () => {
+  it('should return at least one ranked mentor match', async () => {
+    const res = await fetch(`${BASE}/api/recommend`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.E2E_PARTICIPANT_ID, type: 'mentor' }),
+    });
+    expect(res.status).toBe(200);
+    const { results } = await res.json();
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].score).toBeGreaterThan(0);
+    expect(results[0].explanation.length).toBeGreaterThan(5);
+    for (let i = 0; i < results.length - 1; i++) {
+      expect(results[i].score).toBeGreaterThanOrEqual(results[i + 1].score);
+    }
+  }, 25000);
+});
+```
+**Pass criteria:** Results non-empty; sorted descending; each has explanation.
+
+**E2E-4 — Match acceptance creates relationship**
+```typescript
+describe('E2E-4: Match acceptance', () => {
+  it('should accept a match and return a relationship_id', async () => {
+    const res = await fetch(`${BASE}/api/accept-match`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entity_a_id: process.env.E2E_PARTICIPANT_ID,
+        entity_b_id: process.env.E2E_MENTOR_ID,
+        programme_id: process.env.E2E_PROGRAMME_ID,
+        score: 0.88, explanation: 'E2E test match.',
+      }),
+    });
+    expect(res.status).toBe(200);
+    const { relationship_id } = await res.json();
+    expect(relationship_id).toBeDefined();
+
+    const { db } = await import('@/lib/firebase-admin');
+    const snap = await db.collection('relationships').doc(relationship_id).get();
+    expect(snap.exists).toBe(true);
+    expect(snap.data()?.strength_score).toBe(0.88);
+  }, 20000);
+});
+```
+**Pass criteria:** 200 response; Firestore doc with `strength_score: 0.88`.
+
+**E2E-5 — Feedback loop updates relationship score**
+```typescript
+describe('E2E-5: Feedback loop', () => {
+  it('should update strength_score after a 5-star feedback', async () => {
+    const { db } = await import('@/lib/firebase-admin');
+    const snap = await db.collection('relationships')
+      .where('entity_a_id', '==', process.env.E2E_PARTICIPANT_ID).limit(1).get();
+    const relId = snap.docs[0]?.id;
+    const originalScore = snap.docs[0]?.data().strength_score;
+
+    const res = await fetch(`${BASE}/api/feedback`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relationship_id: relId, rating: 5, note: 'Excellent match.' }),
+    });
+    expect(res.status).toBe(200);
+    const updated = await db.collection('relationships').doc(relId).get();
+    expect(updated.data()?.feedback_score).toBeGreaterThan(0);
+    expect(updated.data()?.strength_score).not.toBe(originalScore);
+  }, 20000);
+});
+```
+**Pass criteria:** `feedback_score > 0`; `strength_score` changes from original.
+
+**E2E-6 — All routes accessible**
+```typescript
+describe('E2E-6: Route accessibility', () => {
+  const routes = ['/dashboard/organiser', '/dashboard/participant', '/dashboard/mentor', '/graph'];
+  routes.forEach(route => {
+    it(`should return 200 for ${route}`, async () => {
+      const res = await fetch(`${BASE}${route}`);
+      expect(res.status).toBe(200);
+    });
+  });
+});
+```
+**Pass criteria:** All four routes return 200.
+
+**E2E-7 — API response times within SLA**
+```typescript
+describe('E2E-7: Performance SLA', () => {
+  it('recommendations respond in < 2000ms', async () => {
+    const start = Date.now();
+    await fetch(`${BASE}/api/recommend`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: process.env.E2E_PARTICIPANT_ID, type: 'mentor' }),
+    });
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+  it('profile enrichment completes in < 10000ms', async () => {
+    const start = Date.now();
+    await fetch(`${BASE}/api/enrich-profile`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ manualFormInput: { name: 'Speed Test', headline: 'Eng', skills: ['TS'], experience: [], education: [] } }),
+    });
+    expect(Date.now() - start).toBeLessThan(10000);
+  });
+});
+```
+**Pass criteria:** Recommendation < 2s; enrichment < 10s.
+
+**E2E-8 — No unhandled 500 errors on invalid inputs**
+```typescript
+describe('E2E-8: No unhandled 500 errors', () => {
+  const endpoints = [
+    '/api/enrich-profile', '/api/recommend', '/api/accept-match', '/api/feedback',
+  ];
+  endpoints.forEach(url => {
+    it(`${url} returns 4xx (not 500) for empty body`, async () => {
+      const res = await fetch(`${BASE}${url}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(res.status).not.toBe(500);
+    });
+  });
+});
+```
+**Pass criteria:** All four routes return 400/422 — never 500 — for empty input.
+
+**🏁 Final gate:** All 8 E2E test groups must be green before the project is demo-ready.
+1. If any group fails, identify which phase introduced the regression using its phase-specific test suite
+2. Fix in isolation, then re-run only the failing E2E group
+3. Once green, run the full E2E suite one final time to confirm no regressions
+4. Deploy to Cloud Run and re-run E2E-6 and E2E-7 against the live URL before walking on stage
 
 Run this script during the live demo. Total time: ~4 minutes.
 
