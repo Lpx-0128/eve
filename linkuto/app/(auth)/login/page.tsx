@@ -46,9 +46,9 @@ export default function LoginPage() {
       document.cookie = `user-role=${role}; path=/; max-age=3600`;
       document.cookie = `user-id=${user.uid}; path=/; max-age=3600`;
 
-      // 2. If it's a login, just go to the dashboard
+      // 2. If it's a login, just go to the profile
       if (isLogin) {
-        router.push(`/${user.uid}/dashboard`);
+        router.push(`/${user.uid}/profile`);
         return;
       }
 
@@ -65,8 +65,8 @@ export default function LoginPage() {
         throw new Error(data.error || "Something went wrong during ingestion.");
       }
 
-      // 4. Auto-navigate to dashboard after successful ingestion
-      router.push(`/${user.uid}/dashboard`);
+      // 4. Auto-navigate to profile after successful ingestion
+      router.push(`/${user.uid}/profile`);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Authentication or Profile creation failed. Please try again.");
@@ -75,9 +75,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoToDashboard = () => {
-    router.push(`/dashboard/${role}`);
-  };
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "#F1EFE8" }}>

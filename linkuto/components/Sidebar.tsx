@@ -33,11 +33,10 @@ export default function Sidebar() {
   const userIdSegment = pathParts[0] || '';
 
   const dynamicNavItems = [
-    { label: "Dashboard", icon: LayoutDashboard, href: `/${userIdSegment}/dashboard` },
+    { label: "Programmes", icon: FolderKanban, href: `/${userIdSegment}/programmes` },
     { label: "My Profile", icon: User, href: `/${userIdSegment}/profile` },
     { label: "Recommendations", icon: Sparkles, href: `/${userIdSegment}/recommendations` },
     { label: "Graph", icon: GitBranch, href: `/${userIdSegment}/graph` },
-    { label: "Programmes", icon: FolderKanban, href: `/${userIdSegment}/programmes` },
     { label: "Settings", icon: Settings, href: `/${userIdSegment}/settings` },
   ];
 

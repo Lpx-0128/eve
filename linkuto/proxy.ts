@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+
+  // 0. Skip if it's an internal rewrite to avoid loops
+  if (searchParams.get('internal')) {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get('firebase-auth-token')?.value;
   const role = request.cookies.get('user-role')?.value || 'participant'; // Default to participant
@@ -20,7 +25,6 @@ export function proxy(request: NextRequest) {
   const isAuthRoute = pathname.startsWith('/login');
   // Consider routes protected if they fall under the old structure, new structure, or just root pages
   const isProtectedRoute = 
-    pathname.startsWith('/dashboard') || 
     pathname.startsWith('/profile') || 
     pathname.startsWith('/programmes') || 
     pathname.startsWith('/recommendations') || 
@@ -33,7 +37,7 @@ export function proxy(request: NextRequest) {
 
   // 1. If accessing auth routes (like /login) but already logged in -> redirect to their dashboard or programmes
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL(`/${pathPrefix}/programmes`, request.url));
+    return NextResponse.redirect(new URL(`/${pathPrefix}/profile`, request.url));
   }
 
   // 2. If accessing protected routes but NOT logged in -> redirect to /login
@@ -51,28 +55,28 @@ export function proxy(request: NextRequest) {
       // 3A. If they access the raw audience path (e.g., /participants/programmes), force redirect to /<user_id>/programmes
       if (allBasePaths.includes(firstSegment)) {
         const remainingPath = pathParts.slice(1).join('/');
-        return NextResponse.redirect(new URL(`/${pathPrefix}/${remainingPath || 'dashboard'}`, request.url));
+        return NextResponse.redirect(new URL(`/${pathPrefix}/${remainingPath || 'profile'}`, request.url));
       }
 
       // 3B. If they access a path starting with their userId, REWRITE it internally to the actual Next.js route
       if (userId && firstSegment === userId) {
-        const remainingPath = pathParts.slice(1).join('/') || 'dashboard';
+        const remainingPath = pathParts.slice(1).join('/') || 'profile';
         const sharedRoutes = ['profile', 'recommendations', 'settings'];
         const firstRemainingSegment = remainingPath.split('/')[0];
 
-        if (sharedRoutes.includes(firstRemainingSegment)) {
-          // Shared routes exist at the root level (e.g., app/profile)
-          return NextResponse.rewrite(new URL(`/${remainingPath}`, request.url));
-        } else {
-          // Audience-specific routes (e.g., app/participants/dashboard)
-          return NextResponse.rewrite(new URL(`/${userBasePath}/${remainingPath}`, request.url));
-        }
+        // Add internal=true to the internal URL to skip middleware on the next run
+        const internalUrl = sharedRoutes.includes(firstRemainingSegment)
+          ? new URL(`/${remainingPath}`, request.url)
+          : new URL(`/${userBasePath}/${remainingPath}`, request.url);
+        
+        internalUrl.searchParams.set('internal', 'true');
+        return NextResponse.rewrite(internalUrl);
       }
 
       // 3C. If they try to access ANOTHER user's path (or old root dashboard/programmes), redirect to their own.
       // We can identify a potential foreign user ID if it's long and alphanumeric, but to be safe,
       // if it's an old protected route at the root level, we redirect.
-      const legacyProtectedRoots = ['dashboard', 'profile', 'programmes', 'recommendations', 'graph', 'settings'];
+      const legacyProtectedRoots = ['profile', 'programmes', 'recommendations', 'graph', 'settings'];
       if (legacyProtectedRoots.includes(firstSegment)) {
         const remainingPath = pathParts.slice(1).join('/');
         // Filter out double slashes for root paths
@@ -83,7 +87,7 @@ export function proxy(request: NextRequest) {
       // If it's a foreign user ID (not their own, not a legacy root, not a public asset)
       // Assuming user IDs are typically > 10 chars. Let's strictly restrict if it doesn't match their userId.
       if (userId && firstSegment !== userId && firstSegment.length > 20) {
-        return NextResponse.redirect(new URL(`/${userId}/dashboard`, request.url));
+        return NextResponse.redirect(new URL(`/${userId}/profile`, request.url));
       }
     }
   }
@@ -91,7 +95,7 @@ export function proxy(request: NextRequest) {
   // 4. Redirect root to their specific programmes (if logged in) or login (if not)
   if (pathname === '/') {
     if (token) {
-      return NextResponse.redirect(new URL(`/${pathPrefix}/programmes`, request.url));
+      return NextResponse.redirect(new URL(`/${pathPrefix}/profile`, request.url));
     }
     return NextResponse.redirect(new URL('/login', request.url));
   }
