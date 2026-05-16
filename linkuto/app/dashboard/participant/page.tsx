@@ -11,7 +11,7 @@ const stats = [
   { icon: CheckCircle, label: "Profile Completion", value: "75%" },
   { icon: GraduationCap, label: "Mentor Matches", value: 3, trend: { direction: "up" as const, text: "New" } },
   { icon: FolderKanban, label: "Programmes", value: 2 },
-  { icon: Handshake, label: "Accepted Matches", value: 1 },
+  { icon: Handshake, label: "Connected Matches", value: 1 },
 ];
 
 const recommendedMentors = [
@@ -141,7 +141,7 @@ export default function ParticipantDashboard() {
             </div>
           </motion.div>
 
-          {/* Accepted Matches */}
+          {/* Connected Matches */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -149,7 +149,7 @@ export default function ParticipantDashboard() {
             transition={{ delay: 0.2 }}
           >
             <h2 className="text-lg font-heading font-semibold text-text-primary mb-4">
-              Accepted Matches
+              Connected Matches
             </h2>
             {acceptedMatches.length > 0 ? (
               <div className="space-y-3">
@@ -167,7 +167,7 @@ export default function ParticipantDashboard() {
                 ))}
               </div>
             ) : (
-              <EmptyState title="No accepted matches" message="Accept a recommendation to get started." />
+              <EmptyState title="No connected matches" message="Connect with a recommendation to get started." />
             )}
           </motion.div>
         </div>

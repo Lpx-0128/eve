@@ -97,7 +97,7 @@ export default function RecommendationCard({
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-gradient-start to-gradient-end hover:opacity-90 disabled:opacity-50 shadow-sm transition-all cursor-pointer"
         >
           <Check size={14} />
-          Accept
+          Connect
         </button>
       </div>
     </motion.div>

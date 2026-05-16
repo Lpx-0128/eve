@@ -170,7 +170,7 @@ export default function ParticipantDashboard() {
                 ))}
               </div>
             ) : (
-              <EmptyState title="No accepted matches" message="Accept a recommendation to get started." />
+              <EmptyState title="No connected matches" message="Connect with a recommendation to get started." />
             )}
           </motion.div>
         </div>

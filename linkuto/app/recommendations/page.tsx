@@ -32,10 +32,13 @@ export default function RecommendationsPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          const roleMatch = document.cookie.match(new RegExp('(^| )user-role=([^;]+)'));
+          const role = roleMatch ? roleMatch[2] : null;
+
           const res = await fetch("/api/recommend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: user.uid })
+            body: JSON.stringify({ userId: user.uid, role })
           });
           
           const json = await res.json();
@@ -131,8 +134,8 @@ export default function RecommendationsPage() {
                   </div>
                   
                   <div className="text-center">
-                    <div className="text-3xl font-extrabold text-text-primary font-heading tracking-tighter">
-                      {Math.round(score * 100)}<span className="text-lg text-text-muted">%</span>
+                    <div className="text-2xl font-extrabold text-text-primary font-heading tracking-tighter">
+                      {(score * 100).toFixed(1)}<span className="text-sm text-text-muted ml-0.5">%</span>
                     </div>
                     <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">
                       RRI Score
@@ -161,7 +164,7 @@ export default function RecommendationsPage() {
                       </button>
                       <button className="px-5 h-10 rounded-full text-white text-sm font-semibold shadow-md hover:opacity-90 transition-opacity flex items-center gap-2 cursor-pointer"
                         style={{ background: "linear-gradient(135deg, #736278, #00508B)" }}>
-                        <Check size={16} /> Accept
+                        <Check size={16} /> Connect
                       </button>
                     </div>
                   </div>

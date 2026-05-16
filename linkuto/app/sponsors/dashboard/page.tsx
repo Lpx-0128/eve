@@ -56,7 +56,7 @@ const companyProfile = {
   description: "Global innovation hub sponsoring early-stage startups in key verticals.",
 };
 
-const acceptedStartups = [
+const connectedStartups = [
   { id: "a1", name: "NeoBank Labs", programme: "Fintech Accelerator Q2", status: "Active", since: "Mar 2026" },
   { id: "a2", name: "CloudPay", programme: "Fintech Accelerator Q2", status: "Active", since: "Apr 2026" },
 ];
@@ -169,11 +169,11 @@ export default function SponsorDashboard() {
             transition={{ delay: 0.2 }}
           >
             <h2 className="text-lg font-heading font-semibold text-text-primary mb-4">
-              Accepted Startups
+              Connected Startups
             </h2>
-            {acceptedStartups.length > 0 ? (
+            {connectedStartups.length > 0 ? (
               <div className="space-y-3">
-                {acceptedStartups.map((s) => (
+                {connectedStartups.map((s) => (
                   <div key={s.id} className="bg-card-bg rounded-2xl p-5 border border-border-warm shadow-sm flex items-center gap-4">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gradient-start to-gradient-end flex items-center justify-center text-white font-bold text-xs">
                       {s.name.charAt(0)}
@@ -189,7 +189,7 @@ export default function SponsorDashboard() {
                 ))}
               </div>
             ) : (
-              <EmptyState title="No accepted startups" message="Accept a match to begin a partnership." />
+              <EmptyState title="No connected startups" message="Connect with a match to begin a partnership." />
             )}
           </motion.div>
         </div>

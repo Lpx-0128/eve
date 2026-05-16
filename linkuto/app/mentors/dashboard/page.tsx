@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 const stats = [
   { icon: Users, label: "Incoming Requests", value: 5, trend: { direction: "up" as const, text: "2 new" } },
   { icon: Star, label: "Expertise Areas", value: 4 },
-  { icon: CheckCircle, label: "Accepted Startups", value: 3 },
+  { icon: CheckCircle, label: "Connected Startups", value: 3 },
   { icon: Clock, label: "Pending Reviews", value: 2 },
 ];
 
@@ -48,7 +48,7 @@ const expertise = [
   "Go-to-Market",
 ];
 
-const acceptedStartups = [
+const connectedStartups = [
   { id: "as1", name: "NeoBank Labs", stage: "Series A", status: "Active mentoring", lastInteraction: "2 days ago" },
   { id: "as2", name: "CloudPay", stage: "Seed", status: "Meeting next week", lastInteraction: "1 week ago" },
   { id: "as3", name: "DataVault", stage: "Pre-seed", status: "Completed", lastInteraction: "3 weeks ago" },
@@ -130,10 +130,10 @@ export default function MentorDashboard() {
             transition={{ delay: 0.2 }}
           >
             <h2 className="text-lg font-heading font-semibold text-text-primary mb-4">
-              Accepted Startups
+              Connected Startups
             </h2>
             <div className="space-y-3">
-              {acceptedStartups.map((s) => (
+              {connectedStartups.map((s) => (
                 <div key={s.id} className="bg-card-bg rounded-2xl p-5 border border-border-warm shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gradient-start to-gradient-end flex items-center justify-center text-white font-bold text-xs">
