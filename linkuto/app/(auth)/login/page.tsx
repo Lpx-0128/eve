@@ -44,10 +44,11 @@ export default function LoginPage() {
       // We set dummy cookies here so the middleware knows we are logged in and our role
       document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600`;
       document.cookie = `user-role=${role}; path=/; max-age=3600`;
+      document.cookie = `user-id=${user.uid}; path=/; max-age=3600`;
 
       // 2. If it's a login, just go to the dashboard
       if (isLogin) {
-        router.push(`/dashboard/${role}`);
+        router.push(`/${user.uid}/dashboard`);
         return;
       }
 
@@ -65,7 +66,7 @@ export default function LoginPage() {
       }
 
       // 4. Auto-navigate to dashboard after successful ingestion
-      router.push(`/dashboard/${role}`);
+      router.push(`/${user.uid}/dashboard`);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Authentication or Profile creation failed. Please try again.");

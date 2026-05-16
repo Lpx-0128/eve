@@ -2,7 +2,7 @@
 
 import Sidebar from "@/components/Sidebar";
 
-export default function RecommendationsLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -25,14 +25,9 @@ export default function RecommendationsLayout({
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search matches..."
+                  placeholder="Search..."
                   className="hidden sm:block w-48 lg:w-64 px-4 py-2 text-sm rounded-xl border border-border-warm bg-card-bg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-text-primary placeholder:text-text-muted"
                 />
-              </div>
-
-              {/* User avatar */}
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gradient-start to-gradient-end flex items-center justify-center text-white text-sm font-bold cursor-pointer hover:opacity-90 transition-opacity">
-                D
               </div>
             </div>
           </div>

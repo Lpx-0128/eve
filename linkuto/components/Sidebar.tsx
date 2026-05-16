@@ -19,15 +19,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-
-const navItems = [
-  { label: "Programmes", icon: FolderKanban, href: "/programmes" },
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "My Profile", icon: User, href: "/profile" },
-  { label: "Recommendations", icon: Sparkles, href: "/recommendations" },
-  { label: "Graph", icon: GitBranch, href: "/graph" },
-  { label: "Settings", icon: Settings, href: "/settings" },
-];
+import { useProfile } from "@/lib/useProfile";
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -35,11 +27,26 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const { profileName, loading } = useProfile();
+
+  const pathParts = pathname.split('/').filter(Boolean);
+  const userIdSegment = pathParts[0] || '';
+
+  const dynamicNavItems = [
+    { label: "Dashboard", icon: LayoutDashboard, href: `/${userIdSegment}/dashboard` },
+    { label: "My Profile", icon: User, href: `/${userIdSegment}/profile` },
+    { label: "Recommendations", icon: Sparkles, href: `/${userIdSegment}/recommendations` },
+    { label: "Graph", icon: GitBranch, href: `/${userIdSegment}/graph` },
+    { label: "Programmes", icon: FolderKanban, href: `/${userIdSegment}/programmes` },
+    { label: "Settings", icon: Settings, href: `/${userIdSegment}/settings` },
+  ];
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
       document.cookie = "firebase-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       document.cookie = "user-role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "user-id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       router.push("/login");
     } catch (error) {
       console.error("Error logging out:", error);
@@ -78,22 +85,17 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1">
-        {navItems.map((item) => {
+        {dynamicNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            pathname === item.href ||
-            (item.href.startsWith("/dashboard") &&
-              pathname.startsWith("/dashboard") &&
-              item.label === "Dashboard");
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
-                collapsed ? "justify-center" : ""
-              }`}
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
+                }`}
               style={{
                 color: isActive ? "#FFFFFF" : "rgba(255,255,255,0.7)",
                 backgroundColor: isActive ? "rgba(255,255,255,0.15)" : "transparent",
@@ -138,9 +140,8 @@ export default function Sidebar() {
       {/* User Section */}
       <div className="px-3 pb-6 pt-4 mt-auto" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
         <div
-          className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${collapsed ? "justify-center" : ""
+            }`}
         >
           <div className="flex items-center gap-3 overflow-hidden">
             <div
@@ -150,7 +151,7 @@ export default function Sidebar() {
                 color: "#FFFFFF",
               }}
             >
-              D
+              {loading ? "..." : (profileName ? profileName.charAt(0).toUpperCase() : "O")}
             </div>
             <AnimatePresence mode="wait">
               {!collapsed && (
@@ -161,10 +162,10 @@ export default function Sidebar() {
                   className="overflow-hidden"
                 >
                   <p className="text-sm font-medium truncate" style={{ color: "#FFFFFF" }}>
-                    Dev User
+                    {loading ? "Loading..." : (profileName || "Organisation")}
                   </p>
                   <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.5)" }}>
-                    Organiser
+                    Account
                   </p>
                 </motion.div>
               )}
