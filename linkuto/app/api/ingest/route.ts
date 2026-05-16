@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { crawlWebsite, searchFirecrawl } from '@/lib/scraper';
-import { extractCompanyAndCEO, compileFinalProfile } from '@/lib/gemini';
+import { extractCompanyAndCEO, compileFinalProfile, extractPersonName } from '@/lib/gemini';
 import { db } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
@@ -26,10 +26,32 @@ export async function POST(request: Request) {
     
     let ceoInfo = [];
     
-    // 3. If CEO is found, search for recent info
+    // 3. Deep Search for CEO/Founder
+    if (!profileData.ceo_name || profileData.ceo_name.trim().length === 0) {
+      console.log(`[API] CEO not found on site. Deep searching web for founder...`);
+      // Wider search to find the name
+      const searchRes = await searchFirecrawl(`founder CEO of ${profileData.name || url} LinkedIn Crunchbase`);
+      if (searchRes && searchRes.length > 0) {
+        const searchContent = searchRes.map((r: any) => `${r.title}: ${r.description} ${r.markdown || ''}`).join('\n\n');
+        const extracted = await extractPersonName(searchContent.substring(0, 10000));
+        if (extracted.ceo_name) {
+          profileData.ceo_name = extracted.ceo_name;
+          console.log(`[API] Leadership identified via deep search: ${profileData.ceo_name}`);
+        }
+      }
+    }
+
     if (profileData.ceo_name && profileData.ceo_name.trim().length > 0) {
-      console.log(`[API] CEO found: ${profileData.ceo_name}. Searching web for interactions...`);
-      ceoInfo = await searchFirecrawl(`"${profileData.ceo_name}" "${profileData.name}" recent news interactions`);
+      console.log(`[API] Performing deep research on: ${profileData.ceo_name}...`);
+      // Targeted deep search for news, LinkedIn summary, and recent interactions
+      const deepSearchQueries = [
+        `"${profileData.ceo_name}" ${profileData.name} background founder news`,
+        `"${profileData.ceo_name}" LinkedIn profile summary interactions`
+      ];
+      
+      const searchTasks = deepSearchQueries.map(q => searchFirecrawl(q));
+      const searchResults = await Promise.all(searchTasks);
+      ceoInfo = searchResults.flat();
     }
 
     // 4. Compile final rich profile
