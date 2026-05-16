@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
-    const { url } = await request.json();
+    const { url, userId } = await request.json();
 
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       return NextResponse.json(
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[API] Ingesting startup website: ${url}`);
+    console.log(`[API] Ingesting startup website: ${url} for user: ${userId || 'anonymous'}`);
     
     // 1. Crawl startup website
     console.log(`[API] Starting Firecrawl crawl...`);
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       ...structuredProfile,
       sourceUrl: url,
       type: 'Participant', // Default for Phase 1, can be extended later
+      userId: userId || null, // Associate with Firebase Auth user
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

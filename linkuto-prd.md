@@ -700,6 +700,12 @@ describe('P3-5: Input validation', () => {
   - Profile + expertise display
   - Accepted startups list
 
+- [ ] **Sponsor/Partner Dashboard:**
+  - Incoming startup matches
+  - Feedback & progress from mentee
+  - Company profile 
+  - Accepted startups 
+
 - [ ] Use Framer Motion for:
   - Page load stagger animations
   - Card hover states

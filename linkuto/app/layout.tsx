@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Montserrat, Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "LINKUTO",
-  description: "Ecosystem Relationship Intelligence Platform",
+  title: "LINKUTO - Ecosystem Relationship Intelligence",
+  description: "Ecosystem Relationship Intelligence Platform for intelligent B2B matching.",
 };
 
 export default function RootLayout({
@@ -25,22 +27,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${montserrat.variable} ${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-gray-50" suppressHydrationWarning>
-        <nav className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex">
-                <div className="flex-shrink-0 flex items-center font-bold text-xl tracking-tight text-blue-600">
-                  LINKUTO
-                </div>
-              </div>
-            </div>
-          </div>
-        </nav>
-        <main className="flex-1">{children}</main>
+      <body className="min-h-full flex flex-col font-body text-text-primary bg-bg-base" suppressHydrationWarning>
+        <main className="flex-1 flex flex-col">{children}</main>
       </body>
     </html>
   );
