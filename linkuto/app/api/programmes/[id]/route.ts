@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/lib/firebase-admin";
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const doc = await db.collection("programmes").doc(params.id).get();
+    const { id } = await params;
+    const doc = await db.collection("programmes").doc(id).get();
     
     if (!doc.exists) {
       return NextResponse.json({ error: "Programme not found" }, { status: 404 });
@@ -19,19 +20,31 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const { name, description, status } = body;
     
-    await db.collection("programmes").doc(params.id).update({
-      name,
-      description,
-      status,
+    // Dynamically accept all editable fields
+    const allowedFields = [
+      "name", "description", "status", "applicationQuestions",
+      "programmeType", "startDate", "endDate", "applicationDeadline",
+      "location", "maxParticipants", "eligibility", "perks", "websiteUrl",
+    ];
+
+    const updateData: Record<string, any> = {
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    await db.collection("programmes").doc(id).update(updateData);
     
     return NextResponse.json({ success: true });
   } catch (error: any) {
