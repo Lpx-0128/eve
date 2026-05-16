@@ -17,6 +17,7 @@ export default function CreateProgrammePage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [industries, setIndustries] = useState("");
+  const [targetShortlistCount, setTargetShortlistCount] = useState<number>(5);
 
   // Application Form states
   const [predefinedQuestions, setPredefinedQuestions] = useState([
@@ -76,6 +77,7 @@ export default function CreateProgrammePage() {
           description,
           industry_focus: industryArray,
           applicationQuestions,
+          targetShortlistCount,
           status: "active",
           organiserId: userId,
           organiserName: "Organiser"
@@ -138,6 +140,16 @@ export default function CreateProgrammePage() {
               <input
                 type="text" value={industries} onChange={(e) => setIndustries(e.target.value)}
                 placeholder="Fintech, AI, SaaS"
+                className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-text-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Target Shortlist Count (AI Selection)</label>
+              <input
+                type="number" required value={targetShortlistCount} onChange={(e) => setTargetShortlistCount(parseInt(e.target.value) || 0)}
+                placeholder="e.g. 5"
+                min="1"
                 className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-text-primary"
               />
             </div>
