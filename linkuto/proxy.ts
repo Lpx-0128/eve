@@ -57,7 +57,7 @@ export function proxy(request: NextRequest) {
       // 3B. If they access a path starting with their userId, REWRITE it internally to the actual Next.js route
       if (userId && firstSegment === userId) {
         const remainingPath = pathParts.slice(1).join('/') || 'dashboard';
-        const sharedRoutes = ['profile', 'recommendations', 'graph', 'settings'];
+        const sharedRoutes = ['profile', 'recommendations', 'settings'];
         const firstRemainingSegment = remainingPath.split('/')[0];
 
         if (sharedRoutes.includes(firstRemainingSegment)) {
