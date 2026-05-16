@@ -6,8 +6,20 @@ export async function GET() {
     const industries = ["Fintech", "HealthTech", "AI/ML", "SaaS", "Logistics", "Sustainability", "EdTech", "Cybersecurity", "Web3", "E-commerce"];
     const locations = ["San Francisco", "London", "Singapore", "New York", "Berlin", "Tokyo", "Dubai", "Sydney", "Toronto", "Paris"];
     
-    const sponsorNames = ["Venture Peak", "Nexus Capital", "Horizon Funds", "Starlight Ventures", "Alpha Bridge", "Echo Partners", "Quantum Growth", "Blue Chip VC", "Iron Gate", "Velocity Capital"];
-    const mentorNames = ["Alex Rivera", "Sarah Jenkins", "Michael Zhang", "Priya Sharma", "David Smith", "Emma Wilson", "Robert Brown", "Linda Garcia", "Thomas Mueller", "Yuki Tanaka"];
+    const sponsorNames = [
+      "Venture Peak", "Nexus Capital", "Horizon Funds", "Starlight Ventures", "Alpha Bridge", 
+      "Echo Partners", "Quantum Growth", "Blue Chip VC", "Iron Gate", "Velocity Capital",
+      "Beacon Equity", "Summit Partners", "Catalyst Ventures", "Frontier Capital", "Prism Investments",
+      "Nova Founders", "Orbit Ventures", "Zenith Capital", "Pinnacle Funds", "Meridian Ventures",
+      "Solaris Equity", "Terra Firma VC", "Aurora Partners", "Kinetic Growth", "Paradigm Shift"
+    ];
+    const mentorNames = [
+      "Alex Rivera", "Sarah Jenkins", "Michael Zhang", "Priya Sharma", "David Smith", 
+      "Emma Wilson", "Robert Brown", "Linda Garcia", "Thomas Mueller", "Yuki Tanaka",
+      "James Anderson", "Maria Rossi", "Kevin Lee", "Sophie Dubois", "Ahmed Hassan",
+      "Elena Petrova", "Chris Taylor", "Olivia Martinez", "Daniel Kim", "Isabella Costa",
+      "Ryan O'Connor", "Chloe Wang", "Marcus Thorne", "Amara Okafor", "Lars Nilsson"
+    ];
     
     const mockEntities = [];
 
@@ -15,7 +27,7 @@ export async function GET() {
     for (let i = 0; i < 25; i++) {
       const industry = industries[i % industries.length];
       mockEntities.push({
-        name: `${sponsorNames[i % sponsorNames.length]} ${Math.floor(i / 10) + 1}`,
+        name: sponsorNames[i],
         type: "Sponsor",
         summary: `Strategic investment firm focused on ${industry} innovation.`,
         industry: industry,
@@ -32,7 +44,7 @@ export async function GET() {
     for (let i = 0; i < 25; i++) {
       const industry = industries[(i + 5) % industries.length];
       mockEntities.push({
-        name: `${mentorNames[i % mentorNames.length]} ${Math.floor(i / 10) + 1}`,
+        name: mentorNames[i],
         type: "Mentor",
         industry: industry,
         location: locations[(i + 3) % locations.length],

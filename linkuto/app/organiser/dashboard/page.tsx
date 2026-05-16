@@ -23,6 +23,7 @@ const pendingMatches = [
     score: 0.92,
     confidence: "high" as const,
     explanation: "Deep expertise in fintech payments directly aligns with PayFlow's Series A focus on cross-border payment infrastructure.",
+    bestMatchedProgramme: "Fintech Accelerator Q2",
   },
   {
     id: "m2",
@@ -31,6 +32,7 @@ const pendingMatches = [
     score: 0.85,
     confidence: "high" as const,
     explanation: "10+ years of SaaS scaling experience matches GrowthKit's current growth stage and GTM challenges.",
+    bestMatchedProgramme: "Climate Tech Sprint",
   },
   {
     id: "m3",
@@ -39,6 +41,7 @@ const pendingMatches = [
     score: 0.78,
     confidence: "medium" as const,
     explanation: "Corporate innovation mandate aligns with the Healthcare AI programme's sustainability goals.",
+    bestMatchedProgramme: "Healthcare AI Cohort",
   },
 ];
 

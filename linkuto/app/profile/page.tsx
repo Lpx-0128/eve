@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, Variants } from "framer-motion";
+import { motion, Variants, AnimatePresence } from "framer-motion";
 import { 
   Building2, 
   MapPin, 
@@ -12,7 +12,10 @@ import {
   Sparkles, 
   Globe,
   Award,
-  Wallet
+  Wallet,
+  X,
+  Save,
+  FileDown
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -36,6 +39,9 @@ const itemVariants: Variants = {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editData, setEditData] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,6 +52,7 @@ export default function ProfilePage() {
           const json = await res.json();
           if (res.ok && json.data) {
             setProfile(json.data);
+            setEditData(json.data);
           }
         } catch (error) {
           console.error("Error fetching profile via API:", error);
@@ -58,6 +65,30 @@ export default function ProfilePage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  const handleSave = async () => {
+    if (!auth.currentUser) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: auth.currentUser.uid, ...editData })
+      });
+      if (res.ok) {
+        setProfile(editData);
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const downloadPDF = () => {
+    window.print();
+  };
 
   if (loading) {
     return <LoadingState message="Loading your intelligent profile..." variant="skeleton" />;
@@ -126,13 +157,19 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button className="px-6 py-3 rounded-xl font-semibold text-sm bg-card-bg border border-border-warm text-text-primary hover:bg-bg-base transition-colors shadow-sm cursor-pointer">
+            <div className="flex items-center gap-3 no-print">
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="px-6 py-3 rounded-xl font-semibold text-sm bg-card-bg border border-border-warm text-text-primary hover:bg-bg-base transition-colors shadow-sm cursor-pointer"
+              >
                 Edit Profile
               </button>
-              <button className="px-6 py-3 rounded-xl font-semibold text-sm text-white shadow-md transition-opacity hover:opacity-90 cursor-pointer"
-                style={{ background: "linear-gradient(135deg, #736278, #00508B)" }}>
-                Share Insight
+              <button 
+                onClick={downloadPDF}
+                className="px-6 py-3 rounded-xl font-semibold text-sm text-white shadow-md transition-opacity hover:opacity-90 cursor-pointer flex items-center gap-2"
+                style={{ background: "linear-gradient(135deg, #736278, #00508B)" }}
+              >
+                <FileDown size={16} /> Share Insight
               </button>
             </div>
           </div>
@@ -275,6 +312,207 @@ export default function ProfilePage() {
         </motion.div>
 
       </motion.div>
+
+      {/* 3. Edit Modal */}
+      <AnimatePresence>
+        {isEditing && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditing(false)}
+              className="absolute inset-0 bg-bg-base/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-card-bg rounded-[2.5rem] border border-border-warm shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              <div className="p-6 md:p-8 border-b border-border-warm flex items-center justify-between bg-bg-base/50">
+                <div>
+                  <h2 className="text-2xl font-heading font-extrabold text-text-primary">Edit Intelligence Profile</h2>
+                  <p className="text-sm text-text-muted">Refine your company and founder information</p>
+                </div>
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="p-2 rounded-full hover:bg-bg-base text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Company Name</label>
+                    <input 
+                      value={editData?.name || ""}
+                      onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm focus:border-accent outline-none transition-colors font-medium text-text-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Headline</label>
+                    <input 
+                      value={editData?.headline || ""}
+                      onChange={(e) => setEditData({ ...editData, headline: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm focus:border-accent outline-none transition-colors font-medium text-text-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Executive Summary</label>
+                  <textarea 
+                    value={editData?.summary || ""}
+                    onChange={(e) => setEditData({ ...editData, summary: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm focus:border-accent outline-none transition-colors font-medium text-text-primary resize-none"
+                  />
+                </div>
+
+                {/* Leadership */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border-warm">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Founder / CEO Name</label>
+                    <input 
+                      value={editData?.ceo_name || ""}
+                      onChange={(e) => setEditData({ ...editData, ceo_name: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm focus:border-accent outline-none transition-colors font-medium text-text-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Leadership Bio</label>
+                    <input 
+                      value={editData?.ceo_info || ""}
+                      onChange={(e) => setEditData({ ...editData, ceo_info: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm focus:border-accent outline-none transition-colors font-medium text-text-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Firmographics */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border-warm">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Industry</label>
+                    <input 
+                      value={editData?.industry || ""}
+                      onChange={(e) => setEditData({ ...editData, industry: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Location</label>
+                    <input 
+                      value={editData?.location || ""}
+                      onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Scale</label>
+                    <input 
+                      value={editData?.scale || ""}
+                      onChange={(e) => setEditData({ ...editData, scale: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Funding</label>
+                    <input 
+                      value={editData?.funding_signals || ""}
+                      onChange={(e) => setEditData({ ...editData, funding_signals: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Strategy */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border-warm">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Target Audience</label>
+                    <input 
+                      value={editData?.target_audience || ""}
+                      onChange={(e) => setEditData({ ...editData, target_audience: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Business Model</label>
+                    <input 
+                      value={editData?.business_model || ""}
+                      onChange={(e) => setEditData({ ...editData, business_model: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Value Proposition</label>
+                  <textarea 
+                    value={editData?.core_value || ""}
+                    onChange={(e) => setEditData({ ...editData, core_value: e.target.value })}
+                    rows={2}
+                    className="w-full px-4 py-3 rounded-xl bg-bg-base border border-border-warm text-sm font-medium resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 border-t border-border-warm bg-bg-base/50 flex items-center justify-end gap-4">
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="px-6 py-3 rounded-xl font-semibold text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={isSaving}
+                  onClick={handleSave}
+                  className="px-8 py-3 rounded-xl bg-accent text-white font-bold text-sm shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save size={18} />
+                  )}
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <style jsx global>{`
+        @media print {
+          nav, footer, .no-print, button {
+            display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          .max-w-6xl {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .bg-card-bg {
+            border: 1px solid #eee !important;
+            box-shadow: none !important;
+          }
+          h1 {
+            font-size: 2.5rem !important;
+            color: black !important;
+          }
+          .text-text-muted {
+            color: #666 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

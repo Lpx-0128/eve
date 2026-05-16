@@ -57,6 +57,7 @@ export default function ProgrammeDetailsPage() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState("active");
+  const [editOrganiserName, setEditOrganiserName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -66,7 +67,7 @@ export default function ProgrammeDetailsPage() {
   const [editEndDate, setEditEndDate] = useState("");
   const [editDeadline, setEditDeadline] = useState("");
   const [editLocation, setEditLocation] = useState("");
-  const [editMaxParticipants, setEditMaxParticipants] = useState(20);
+  const [editMaxParticipants, setEditMaxParticipants] = useState<string | number>("");
   const [editEligibility, setEditEligibility] = useState("");
   const [editPerks, setEditPerks] = useState("");
   const [editWebsiteUrl, setEditWebsiteUrl] = useState("");
@@ -178,6 +179,23 @@ export default function ProgrammeDetailsPage() {
     }
   };
 
+  const handleEditClick = () => {
+    setEditName(programme.name);
+    setEditDescription(programme.description);
+    setEditStatus(programme.status);
+    setEditOrganiserName(programme.organiserName || "");
+    setEditType(programme.programmeType || "Accelerator");
+    setEditLocation(programme.location || "");
+    setEditStartDate(programme.startDate ? programme.startDate.split('T')[0] : "");
+    setEditEndDate(programme.endDate ? programme.endDate.split('T')[0] : "");
+    setEditDeadline(programme.applicationDeadline ? programme.applicationDeadline.split('T')[0] : "");
+    setEditEligibility(programme.eligibility || "");
+    setEditPerks(programme.perks || "");
+    setEditMaxParticipants(programme.maxParticipants ? String(programme.maxParticipants) : "");
+    setEditWebsiteUrl(programme.websiteUrl || "");
+    setShowEditModal(true);
+  };
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isOwner) return;
@@ -188,11 +206,20 @@ export default function ProgrammeDetailsPage() {
         ...editCustomQuestions.filter(q => q.label.trim().length > 0).map(q => ({ label: q.label, type: "text", isCustom: true })),
       ];
       const payload = {
-        name: editName, description: editDescription, status: editStatus, applicationQuestions,
-        programmeType: editType, startDate: editStartDate || null, endDate: editEndDate || null,
-        applicationDeadline: editDeadline || null, location: editLocation || null,
-        maxParticipants: editMaxParticipants, eligibility: editEligibility || null,
-        perks: editPerks || null, websiteUrl: editWebsiteUrl || null,
+        name: editName,
+        description: editDescription,
+        status: editStatus,
+        organiserName: editOrganiserName,
+        applicationQuestions,
+        programmeType: editType,
+        startDate: editStartDate || null,
+        endDate: editEndDate || null,
+        applicationDeadline: editDeadline || null,
+        location: editLocation || null,
+        maxParticipants: editMaxParticipants ? parseInt(editMaxParticipants.toString()) : null,
+        eligibility: editEligibility || null,
+        perks: editPerks || null,
+        websiteUrl: editWebsiteUrl || null,
       };
       const res = await fetch(`/api/programmes/${programmeId}`, {
         method: "PUT",
@@ -431,7 +458,7 @@ export default function ProgrammeDetailsPage() {
                 <button className="py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #736278, #00508B)" }} onClick={() => router.push(`${pathname}/ai-screening`)}><Sparkles size={16} /> Live AI Screening</button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button className="py-3 rounded-xl bg-bg-base border border-border-warm font-semibold text-sm hover:bg-border-warm/30 transition-all flex items-center justify-center gap-2" onClick={() => setShowEditModal(true)}><Edit3 size={16} /> Edit Programme</button>
+                <button className="py-3 rounded-xl bg-bg-base border border-border-warm font-semibold text-sm hover:bg-border-warm/30 transition-all flex items-center justify-center gap-2" onClick={handleEditClick}><Edit3 size={16} /> Edit Programme</button>
                 <button disabled={isDeleting} className="py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-semibold text-sm hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50" onClick={handleDelete}>{isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete Programme</button>
               </div>
             </div>
@@ -650,15 +677,29 @@ export default function ProgrammeDetailsPage() {
                 </div>
 
                 <form onSubmit={handleSaveEdit} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Programme Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-sm"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Programme Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-sm"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Organiser / Host Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editOrganiserName}
+                        onChange={(e) => setEditOrganiserName(e.target.value)}
+                        placeholder="e.g. Y Combinator"
+                        className="w-full px-5 py-4 rounded-xl border border-border-warm bg-bg-base focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all font-body text-sm"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">

@@ -41,7 +41,7 @@ export async function PUT(
     const allowedFields = [
       "name", "description", "status", "applicationQuestions",
       "programmeType", "startDate", "endDate", "applicationDeadline",
-      "location", "maxParticipants", "eligibility", "perks", "websiteUrl",
+      "location", "maxParticipants", "eligibility", "perks", "websiteUrl", "organiserName"
     ];
 
     const updateData: Record<string, any> = {

@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, Check, X } from "lucide-react";
+import { Sparkles, Check, X, Target, Info } from "lucide-react";
+import { useState } from "react";
 
 export interface RecommendationCardProps {
   id: string;
@@ -10,6 +11,7 @@ export interface RecommendationCardProps {
   score: number;
   confidence: "high" | "medium" | "low";
   explanation: string;
+  bestMatchedProgramme?: string;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
   isProcessing?: boolean;
@@ -23,11 +25,13 @@ export default function RecommendationCard({
   score,
   confidence,
   explanation,
+  bestMatchedProgramme,
   onAccept,
   onDecline,
   isProcessing = false,
   index = 0,
 }: RecommendationCardProps) {
+  const [activeTab, setActiveTab] = useState<"insight" | "programme">("insight");
   const scorePercentage = Math.round(score * 100);
 
   const badgeStyles = {
@@ -66,18 +70,56 @@ export default function RecommendationCard({
             </span>
           </div>
 
-          <p className="text-xs font-medium text-text-muted capitalize mb-3">
+          <p className="text-xs font-medium text-text-muted capitalize mb-4">
             {type}
           </p>
 
-          <div className="bg-bg-base rounded-xl p-3">
-            <div className="flex gap-2 items-start">
-              <Sparkles size={14} className="text-accent flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-text-primary/80 font-body leading-relaxed">
-                {explanation}
-              </p>
-            </div>
+          {/* Tab Switcher */}
+          <div className="flex border-b border-border-warm mb-4">
+            <button 
+              onClick={() => setActiveTab("insight")}
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors relative ${activeTab === "insight" ? "text-accent" : "text-text-muted hover:text-text-primary"}`}
+            >
+              <span className="flex items-center gap-1.5"><Info size={12} /> Insight</span>
+              {activeTab === "insight" && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+            </button>
+            <button 
+              onClick={() => setActiveTab("programme")}
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors relative ${activeTab === "programme" ? "text-accent" : "text-text-muted hover:text-text-primary"}`}
+            >
+              <span className="flex items-center gap-1.5"><Target size={12} /> Programme Fit</span>
+              {activeTab === "programme" && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+            </button>
           </div>
+
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 5 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-bg-base rounded-xl p-4 min-h-[80px]"
+          >
+            {activeTab === "insight" ? (
+              <div className="flex gap-2 items-start">
+                <Sparkles size={14} className="text-accent flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-text-primary/80 font-body leading-relaxed">
+                  {explanation}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Recommended Programme</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-accent" />
+                  <p className="text-sm font-heading font-bold text-text-primary">
+                    {bestMatchedProgramme || "N/A"}
+                  </p>
+                </div>
+                <p className="text-xs text-text-muted italic">
+                  Matched via the Relationship Relevance Index (RRI)
+                </p>
+              </div>
+            )}
+          </motion.div>
         </div>
       </div>
 

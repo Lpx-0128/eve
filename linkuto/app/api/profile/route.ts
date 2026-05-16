@@ -42,3 +42,30 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    const { userId, ...data } = await request.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    const snapshot = await db.collection("entities").where("userId", "==", userId).get();
+    
+    if (snapshot.empty) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    const profileId = snapshot.docs[0].id;
+    await db.collection("entities").doc(profileId).update({
+      ...data,
+      updatedAt: new Date().toISOString()
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("[API] Error updating profile:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

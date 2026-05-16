@@ -33,9 +33,17 @@ export default function OrganiserProgrammesPage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) setUserId(user.uid);
     });
+    return () => unsubscribe();
+  }, []);
 
+  useEffect(() => {
     const fetchProgrammes = async () => {
       try {
+        if (userId) {
+          // Auto-claim any mock programmes that were just generated
+          await fetch(`/api/claim-mock?userId=${userId}`);
+        }
+        
         const res = await fetch("/api/programmes");
         const json = await res.json();
         if (res.ok && json.data) {
@@ -47,10 +55,13 @@ export default function OrganiserProgrammesPage() {
         setLoading(false);
       }
     };
-    fetchProgrammes();
 
-    return () => unsubscribe();
-  }, []);
+    // To ensure the auto-claim has the correct ID, we trigger fetch when userId changes.
+    // If not logged in, we still load the programmes immediately.
+    if (userId !== null || auth.currentUser === null) {
+      fetchProgrammes();
+    }
+  }, [userId]);
 
   if (loading) {
     return <LoadingState message="Syncing with the ecosystem..." variant="skeleton" />;

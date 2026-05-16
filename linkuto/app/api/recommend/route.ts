@@ -79,7 +79,8 @@ export async function POST(request: Request) {
             {
               "baseScore": <number between 0.0 and 1.0. Use 3 decimal places for high granularity (e.g., 0.842). Be critical: only give >0.9 for perfect industry AND mission alignment.>,
               "explanation": "<one sentence explaining why this is a good match based on the context provided>",
-              "confidence": "<high, medium, or low>"
+              "confidence": "<high, medium, or low>",
+              "bestMatchedProgramme": "<The name of the programme from 'Active Programmes' that matches this candidate best. If no programmes exist, use 'N/A'>"
             }
           `;
 
@@ -111,7 +112,8 @@ export async function POST(request: Request) {
             score: Number(rriScore.toFixed(4)), 
             displayScore: Number(rriScore.toFixed(2)), 
             explanation: aiEval.explanation,
-            confidence: aiEval.confidence
+            confidence: aiEval.confidence,
+            bestMatchedProgramme: aiEval.bestMatchedProgramme
           };
         } catch (err: any) {
           console.error(`[Scoring Error] Candidate: ${candidate.name} | Error:`, err.message);
