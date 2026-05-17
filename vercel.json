@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd linkuto && npm run build",
+  "outputDirectory": "linkuto/.next",
+  "installCommand": "cd linkuto && npm install",
+  "framework": "nextjs"
+}
