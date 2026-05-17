@@ -1,95 +1,109 @@
 # LINKUTO — Ecosystem Relationship Intelligence Platform
 
-> **A self-learning ecosystem operating system that turns unstructured participant data into a continuously evolving relationship graph — powered by AI embeddings and feedback-driven intelligence.**
+> **A self-learning ecosystem operating system that turns unstructured landing page and search data into a continuously evolving relationship graph — powered by high-dimensional AI embeddings, contextual Gemini synergy reasoning, and Resend confirmation feedback loops.**
 
 ---
 
 ## 🌟 What is LINKUTO?
 
-**LINKUTO** is a vertical B2B SaaS platform that replaces manual spreadsheets and high coordination friction in innovation ecosystem coordination. Designed for accelerators, incubators, and program organizers, it matches startup participants, mentors, and sponsors — intelligently, explainably, and at scale.
+**LINKUTO** is a vertical B2B SaaS platform that replaces manual spreadsheets and high coordination friction in innovation ecosystems. Designed for accelerators, incubators, and program organizers, it matches startup participants, mentors, and sponsors — intelligently, explainably, and at scale.
 
-At its core, LINKUTO is a **living relationship graph** where every participant, mentor, sponsor, and program is represented as a structured entity. When a new participant joins:
-1. Their profile is auto-parsed and enriched from LinkedIn or PDF resumes using Gemini.
-2. The AI matches them against the ecosystem using high-dimensional vector embeddings (`text-embedding-004`).
-3. The platform computes a custom **Relationship Relevance Index (RRI)** to return evidence-backed, ranked match recommendations with natural language explanations.
+Rather than relying on static profiles, LINKUTO builds a **dynamic relationship graph** in real-time. When a new entity is created:
+1. **Dynamic Landing Page Parsing**: LINKUTO deep-crawls company/startup landing pages using **Firecrawl**, converting the content to structured markdown.
+2. **AI Leadership Deep Search**: If the CEO/founder is not identified on the page, the system automatically performs targeted deep-web searches to pinpoint key leadership and compile their professional backgrounds.
+3. **Structured Profiling**: **Gemini 3.1 Flash Lite** normalizes this crawled data into a rich profile containing headlines, summaries, key expertises, and scales of operation.
+4. **Semantic Vector Embeddings**: The text representation is embedded as a 768-dimension vector using the **`gemini-embedding-2`** model.
+5. **Real-time Graph Mapping**: Organizers can view their entire cohort, mentors, and sponsors dynamically mapped in an interactive Node-Edge network using **React Flow**, powered by the **Relationship Relevance Index (RRI)**.
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-### Frontend
-- **Framework**: Next.js 14+ (App Router, Server & Client Components)
-- **Styling**: Tailwind CSS (sleek, interactive, glassmorphic layout)
-- **Animations**: Framer Motion (micro-animations, smooth transitions, staggered entries)
-- **Server State**: React Query (TanStack Query) for high-performance caching & synchronization
-- **Graph Visualization**: React Flow (rendering interactive nodes and relationship weights)
-- **Form Handling**: React Hook Form with Zod schema validation
+### Core Frontend & Presentation
+* **Framework**: Next.js 16 (React 19, Server & Client Components)
+* **Styling**: Tailwind CSS v4 (offering high-performance, modern styles with glassmorphic visuals)
+* **Animations**: Framer Motion (staggered animations, micro-interactions, smooth hover transitions)
+* **Server State**: React Query (TanStack Query) for high-performance server data caching
+* **Visual Graph Engine**: React Flow (rendering custom Hexagonal and Bubble nodes, with custom popovers and weighted RRI edges)
 
-### Backend & AI Layers
-- **Runtime Environment**: Node.js (Next.js serverless API routes natively deployed on Vercel)
-- **Database & Auth**: Cloud Firestore (data layer) & Firebase Authentication (Google Sign-In)
-- **AI Core**: Gemini 3.1 Flash Lite (profile enrichment, structured data normalization, explanation generation)
-- **Embeddings Engine**: Gemini Embeddings API (`text-embedding-004`) for 768-dimension vector representation
-- **LinkedIn Ingestion**: User-authorized scraping via Playwright (user-initiated, controlled extraction) with PDF fallback
+### Core Backend & Services
+* **Runtime**: Node.js (Next.js serverless API routes natively deployed on Vercel)
+* **Database & Auth**: Cloud Firestore (data store) and Firebase Authentication (Google Sign-In)
+* **AI Generative Core**: **Gemini 3.1 Flash Lite** (`gemini-3.1-flash-lite`) & **Gemini 3.1 Flash Preview** (`gemini-3-flash-preview`)
+* **AI Embeddings Engine**: **Gemini Embeddings API** (`gemini-embedding-2`) generating 768-dimension vector matrices
+* **Scraping Engine**: **Firecrawl** (`@mendable/firecrawl-js`) for landing page crawls and targeted leadership deep searches
+* **Transactional Mailer**: **Resend** for instantly dispatching styled HTML onboarding and registration confirmation emails
 
 ---
 
 ## 📐 Database Schema (Firestore)
 
-LINKUTO organizes data across three core Firestore collections:
+LINKUTO keeps its database clean and scalable by organizing data across three key collections. Relationship weights and graph edges are calculated **dynamically at runtime** to avoid stale data.
 
 ### 1. `entities`
-Stores structured profiles for participants, mentors, sponsors, and programs.
+Stores structured profiles for participants, mentors, sponsors, and programmes.
 ```typescript
 interface Entity {
   id: string;                      // Firestore Doc ID
-  type: 'participant' | 'mentor' | 'sponsor' | 'programme';
-  profile_data: {
-    name: string;
-    summary: string;
-    skills: string[];
-    roles: string[];
-    company_history: Array<{ company: string; role: string; duration: string }>;
-    education: string[];
-  };
-  embedding_vector: number[];      // 768-dimension vector
-  last_updated: string;            // ISO timestamp
+  type: 'Participant' | 'Mentor' | 'Sponsor';
+  name: string;                    // Entity/Company name
+  headline?: string;               // High-level tagline
+  summary?: string;                // Enriched summary
+  industry?: string;               // Core market industry
+  location?: string;               // HQ or geographic base
+  business_model?: string;         // e.g. 'B2B SaaS', 'Marketplace'
+  core_value?: string;             // Value proposition
+  target_audience?: string;
+  funding_signals?: string;
+  social_proof?: string;
+  scale?: string;                  // User base, team size, or revenue metrics
+  ceo_name?: string;               // Extracted Leader Name
+  ceo_info?: string;               // Summary of leadership background
+  expertise?: string[];            // List of core expertises/keywords
+  embedding?: number[];            // 768-dimension vector generated by gemini-embedding-2
+  userId?: string;                 // References Auth User UID (or null for mock items)
+  createdAt: string;               // ISO Timestamp
+  updatedAt: string;               // ISO Timestamp
 }
 ```
 
-### 2. `relationships`
-Models the edges in the relationship graph, tracking connection strength and outcomes.
-```typescript
-interface Relationship {
-  relationship_id: string;
-  entity_a_id: string;             // Reference to entities collection
-  entity_b_id: string;             // Reference to entities collection
-  type: string;                    // e.g. 'mentor-participant'
-  strength_score: number;          // RRI score (0.0 to 1.0)
-  score_breakdown: {
-    embeddingSim: number;
-    engagementScore: number;
-    profileMatch: number;
-    feedbackScore: number;
-  };
-  explanation: string;             // Gemini natural-language match reason
-  interaction_history: Array<{ date: string; action: string }>;
-  feedback_score: number;          // Feedback score provided post-interaction
-}
-```
-
-### 3. `programmes`
-Defines cohort containers and coordinates participants.
+### 2. `programmes`
+Defines cohort containers and active program configurations.
 ```typescript
 interface Programme {
-  programme_id: string;
-  name: string;
-  organiserId: string;
-  participants: string[];          // Entity IDs
-  mentors: string[];               // Entity IDs
-  sponsors: string[];              // Entity IDs
-  status: 'draft' | 'active' | 'completed';
+  id: string;                      // Firestore Doc ID
+  name: string;                    // e.g., 'Global AI Innovators Accelerator 2026'
+  description: string;
+  organiserId: string;             // The organiser UID who manages it
+  organiserName?: string;
+  status: 'active' | 'draft' | 'completed';
+  programmeType: string;           // e.g., 'Accelerator'
+  industry_focus: string[];        // e.g., ['AI/ML', 'Developer Tools']
+  eligibility: string;             // Text eligibility rules
+  perks: string;                   // Text listing perks
+  applicationQuestions: Array<{
+    id: string;
+    label: string;
+    type: 'text';
+    isCustom: boolean;
+  }>;
+  createdAt: string;
   updatedAt: string;
+}
+```
+
+### 3. `applications`
+Stores startup applications to programmes.
+```typescript
+interface Application {
+  id: string;                      // Firestore Doc ID
+  programmeId: string;             // References programmes collection
+  participantId: string;           // References the applicant's UID
+  name: string;                    // Startup name
+  email: string;                   // Applicant email
+  status: 'pending' | 'accepted' | 'declined';
+  appliedAt: string;               // ISO Timestamp
+  answers: Record<string, string>; // Maps question IDs to responses
 }
 ```
 
@@ -97,55 +111,89 @@ interface Programme {
 
 ## 🧮 Core Matching Algorithm: RRI
 
-Matches are evaluated using the **Relationship Relevance Index (RRI)**, an objective formula balancing semantic fit, manual parameters, and real-world feedback loops:
+LINKUTO utilizes the **Relationship Relevance Index (RRI)** to evaluate the synergy weight between entities. RRI is implemented in two customized variations:
+
+### 1. Dynamic Match & Graph Engine (Organisers & Startups)
+This runs in `/api/recommend` and `/api/organiser/graph`. It evaluates candidates against the user's profile and computes completeness on the fly:
+
+$$\text{RRI} = 0.5 \times S_{\text{embedding}} + 0.25 \times S_{\text{engagement}} + 0.15 \times S_{\text{completeness}} + 0.1 \times S_{\text{feedback}}$$
+
+* **$S_{\text{embedding}}$ (50%)**: Semantic vector cosine similarity of entity embeddings generated from `gemini-embedding-2`.
+* **$S_{\text{engagement}}$ (25%)**: Historical engagement level (uses `mockEngagementScore` between `0.5` and `1.0`).
+* **$S_{\text{completeness}}$ (15%)**: Computed score based on profile completion percentage:
+  * Summary present: **+40%**
+  * Expertise array present: **+30%**
+  * Industry present: **+30%**
+* **$S_{\text{feedback}}$ (10%)**: Historical user rating feedback loop (uses `mockFeedbackScore` between `0.6` and `1.0`).
+
+---
+
+### 2. Static Application Screening Engine (Program Applications)
+This runs in `lib/gemini.ts` (`screenApplications`) and `lib/rri.ts` to score cohort applications based on program requirements:
 
 $$\text{RRI} = 0.4 \times S_{\text{embedding}} + 0.3 \times S_{\text{engagement}} + 0.2 \times S_{\text{profile}} + 0.1 \times S_{\text{feedback}}$$
 
-- **$S_{\text{embedding}}$ (40%)**: Cosine similarity between entity embedding vectors generated by `text-embedding-004`.
-- **$S_{\text{engagement}}$ (30%)**: Derived score from past active interaction history.
-- **$S_{\text{profile}}$ (20%)**: Keyword/domain alignment evaluated via Gemini prompt categorization.
-- **$S_{\text{feedback}}$ (10%)**: Dynamic rating supplied by participants and organizers after active interactions.
+* **$S_{\text{embedding}}$ (40%)**: Semantic similarity estimated by Gemini based on industry/keyword alignment.
+* **$S_{\text{engagement}}$ (30%)**: Applicant enthusiasm and depth of application answers.
+* **$S_{\text{profile}}$ (20%)**: Direct eligibility and criteria matching.
+* **$S_{\text{feedback}}$ (10%)**: Dynamic projected feedback score.
 
 ---
 
 ## 🚀 Local Development Setup
 
-Follow these steps to run LINKUTO locally on your machine:
-
-### 1. Prerequisites
-- Node.js (v18+)
-- npm / yarn / pnpm
-
-### 2. Clone and Install Dependencies
+### 1. Installation
+Install all required node packages:
 ```bash
-# Install package dependencies
 npm install
 ```
 
-### 3. Configure Local Environment Variables
-Create a `.env.local` file in the root directory:
+### 2. Configure Environment Variables
+Create a `.env.local` file in your root folder:
 ```env
-# Public Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+# Public Firebase Configurations
+NEXT_PUBLIC_FIREBASE_API_KEY=your_public_apiKey
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
 
-# Google Gemini API Key
-GEMINI_API_KEY=your_gemini_api_key
+# Google Gemini API
+GEMINI_API_KEY=your_gemini_api_token
+
+# Firecrawl Scraping Engine
+FIRECRAWL_API_KEY=your_firecrawl_api_token
+
+# Resend Transactional Email API
+RESEND_API_KEY=your_resend_api_token
 
 # Firebase Admin SDK credentials (JSON string, single-line)
 FIREBASE_ADMIN_KEY='{"type":"service_account","project_id":"your_firebase_project_id",...}'
-
-# (Optional) Integration APIs
-GEMINI_API_KEY=your_gemini_api_key
-FIRECRAWL_API_KEY=your_firecrawl_api_key
 ```
 
-### 4. Seed the Database
-Start the development server:
+### 3. Run Local Server
 ```bash
 npm run dev
 ```
-Navigate to the seeding endpoint `http://localhost:3000/api/seed-mock` (or call `/api/seed-mock` using a tool like Postman) to populate your Firestore collections with realistic seed data, including mock entities and relationship vectors.
 
-### 5. Verify Local Integrity
-Run diagnostic queries at `http://localhost:3000/api/diag` to verify that local environment variables are loaded and Firebase Admin is securely connected to your Cloud Database.
+### 4. Run Test Verification Suites
+Execute the local Phase 0 verification suite to confirm that environment configurations are loaded and Firestore is writable:
+```bash
+npx ts-node test-p0.ts
+```
+
+---
+
+## 🩺 Diagnostic & Seeding Endpoints (The Sandbox)
+
+LINKUTO includes diagnostic and database seeding utilities that make local and staging testing incredibly easy.
+
+1. **Ecosystem Connection Diagnostics**:  
+   Navigate to `/api/diag` on your browser to check local environment statuses and verify that Firebase Admin possesses read/write capability.
+2. **Generates 25 Sponsors & 25 Mentors**:  
+   Trigger `GET` on `/api/seed-mock` to populate Firestore with high-quality, mock entity records complete with industries, geographical regions, expertises, and scoring parameters.
+3. **Generates 1 Programme & 5 Applications**:  
+   Trigger `GET` on `/api/seed-programme-applications` to seed the **Global AI Innovators Accelerator 2026** cohort and 5 highly descriptive applications ranging from AI-first models to food automation.
+4. **Claim Seeded Data**:  
+   Seeded programs belong to a dummy host ID. Trigger `GET` on `/api/claim-mock?userId=<YOUR_UID>` to assign all active programmes to your logged-in Organizer account.
+5. **Normalize Seed Names**:  
+   Trigger `GET` on `/api/cleanup-names` to remove any numeric increments or trailing spaces from auto-generated entities.
+
+---
